@@ -1,44 +1,59 @@
 """
-JSON ingestion.
-
-Loads reviews from a JSON feed (list of review objects, or a JSON Lines
-file) and converts each entry into a `Review` (see schema.py).
-
-Why this is separate from csv_loader.py even though both are "flat file"
-sources: JSON feeds are often nested (e.g. reviews grouped under a
-product object) while CSVs are always flat rows. Keeping them separate
-avoids a loader that tries to handle both shapes and ends up fragile.
+JSON Lines ingestion — Amazon Reviews 2023 format (McAuley Lab).
 """
 
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
-from .schema import Review
+from .schema import Review, make_review_id
+
+SOURCE_NAME = "json"
 
 
 def load_json(path: Path) -> Iterator[Review]:
-    """
-    Read a JSON file and yield one Review per entry.
+    skipped = 0
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                raw = json.loads(line)
+            except json.JSONDecodeError:
+                skipped += 1
+                continue
 
-    Implementation notes for when you write this:
-    - Support two shapes at minimum: a flat list of review objects, and
-      a JSON Lines file (one JSON object per line) — the latter is
-      common for large exports since it can be streamed instead of
-      loaded fully into memory.
-    - Detect which shape it is (e.g. by trying to parse the first line
-      as standalone JSON) rather than requiring the caller to specify it.
-    - Same rule as csv_loader: skip and count invalid entries rather than
-      crashing on the first malformed record — a 50,000-review export
-      having 12 bad entries shouldn't block ingestion of the other
-      49,988.
+            text = raw.get("text")
+            product_id = raw.get("parent_asin") or raw.get("asin")
+            if not text or not product_id:
+                skipped += 1
+                continue
 
-    Args:
-        path: path to the JSON or JSON Lines file.
+            original_id = raw.get("user_id", "") + str(raw.get("timestamp", ""))
+            review_id = make_review_id(SOURCE_NAME, original_id)
 
-    Yields:
-        Review objects, one per valid entry.
+            timestamp_ms = raw.get("timestamp")
+            review_date = None
+            if timestamp_ms:
+                review_date = datetime.fromtimestamp(
+                    timestamp_ms / 1000, tz=timezone.utc
+                ).date()
 
-    TODO(Layer 1 implementation): implement, detecting list-JSON vs
-    JSON-Lines format.
-    """
-    raise NotImplementedError
+            yield Review(
+                review_id=review_id,
+                product_id=product_id,
+                source=SOURCE_NAME,
+                text_raw=text,
+                rating=raw.get("rating"),
+                review_date=review_date,
+                metadata={
+                    "title": raw.get("title"),
+                    "verified_purchase": raw.get("verified_purchase"),
+                    "helpful_vote": raw.get("helpful_vote"),
+                },
+            )
+
+    if skipped:
+        print(f"[json_loader] Skipped {skipped} malformed/incomplete lines in {path}")
