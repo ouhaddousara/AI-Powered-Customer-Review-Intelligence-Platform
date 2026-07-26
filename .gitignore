@@ -1,0 +1,33 @@
+# Data — never committed (too heavy, environment-specific)
+data/raw/
+data/processed/
+*.csv
+*.json
+!requirements.txt
+
+# Models / embeddings / vector index (large binary files)
+*.faiss
+*.index
+chroma_db/
+models/
+*.pkl
+*.h5
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Notebooks — Jupyter checkpoints (not the notebook itself)
+.ipynb_checkpoints/
+
+# Colab / environment
+.env
+*.log
+
+# OS / editor
+.DS_Store
+.vscode/
