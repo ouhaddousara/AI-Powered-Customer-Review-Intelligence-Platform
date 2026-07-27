@@ -1,8 +1,11 @@
 from pathlib import Path
-from src.ingestion import load_json
+from src.ingestion import load_json, load_csv
 
-reviews = list(load_json(Path("data/raw/amazon_reviews_sample.jsonl")))
+json_reviews = list(load_json(Path("data/raw/amazon_reviews_sample.jsonl")))
+print(f"[JSON] Loaded {len(json_reviews)} reviews")
+print(json_reviews[0])
 
-print(f"Loaded {len(reviews)} reviews")
-print(reviews[0])
-print(reviews[0].to_dict())
+csv_reviews = list(load_csv(Path("data/raw/sample_csv_export.csv")))
+print(f"[CSV] Loaded {len(csv_reviews)} reviews")
+for r in csv_reviews:
+    print(r)

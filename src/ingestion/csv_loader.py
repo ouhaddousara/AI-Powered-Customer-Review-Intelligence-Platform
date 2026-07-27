@@ -1,22 +1,15 @@
 """
-CSV ingestion.
-
-Loads reviews from a CSV export (e.g. a retailer's review export) and
-converts each row into a `Review` (see schema.py).
-
-Why this is its own module and not inlined elsewhere: CSV exports vary
-a lot in column naming between retailers. Isolating that mapping logic
-here means adapting to a new CSV format only touches this file.
+CSV ingestion — retailer CSV export format.
 """
 
+import pandas as pd
 from pathlib import Path
 from typing import Iterator
 
-from .schema import Review
+from .schema import Review, make_review_id
 
+SOURCE_NAME = "csv"
 
-# Expected column mapping. Adjust this once you have a real CSV sample —
-# this is the first thing to check when a new CSV source doesn't parse.
 COLUMN_MAPPING = {
     "review_id": "review_id",
     "product_id": "product_id",
@@ -27,26 +20,42 @@ COLUMN_MAPPING = {
 
 
 def load_csv(path: Path) -> Iterator[Review]:
-    """
-    Read a CSV file and yield one Review per valid row.
+    df = pd.read_csv(path, encoding="utf-8", dtype=str)
 
-    Implementation notes for when you write this:
-    - Use pandas.read_csv (already a project dependency) rather than the
-      stdlib csv module — it handles encoding/quoting edge cases better
-      and integrates naturally with the rest of the pandas-based pipeline.
-    - Rows missing a required field (text, product_id) should be skipped
-      and counted, not silently dropped — log or return a count so the
-      caller knows how much data was rejected.
-    - Do not assume the CSV is UTF-8. Reviews often contain non-ASCII
-      characters (accents, emojis) — handle encoding errors explicitly
-      rather than letting pandas guess.
+    skipped = 0
+    for _, row in df.iterrows():
+        text = row.get(COLUMN_MAPPING["text"])
+        product_id = row.get(COLUMN_MAPPING["product_id"])
 
-    Args:
-        path: path to the CSV file.
+        if pd.isna(text) or pd.isna(product_id):
+            skipped += 1
+            continue
 
-    Yields:
-        Review objects, one per valid row.
+        original_id = row.get(COLUMN_MAPPING["review_id"])
+        if pd.isna(original_id):
+            skipped += 1
+            continue
 
-    TODO(Layer 1 implementation): implement using pandas + COLUMN_MAPPING.
-    """
-    raise NotImplementedError
+        review_id = make_review_id(SOURCE_NAME, str(original_id))
+
+        rating_raw = row.get(COLUMN_MAPPING["rating"])
+        rating = int(float(rating_raw)) if not pd.isna(rating_raw) else None
+
+        date_raw = row.get(COLUMN_MAPPING["date"])
+        review_date = None
+        if not pd.isna(date_raw):
+            parsed = pd.to_datetime(date_raw, errors="coerce")
+            if not pd.isna(parsed):
+                review_date = parsed.date()
+
+        yield Review(
+            review_id=review_id,
+            product_id=str(product_id),
+            source=SOURCE_NAME,
+            text_raw=str(text),
+            rating=rating,
+            review_date=review_date,
+        )
+
+    if skipped:
+        print(f"[csv_loader] Skipped {skipped} malformed/incomplete rows in {path}")
