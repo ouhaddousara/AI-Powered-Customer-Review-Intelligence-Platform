@@ -11,13 +11,10 @@ change without breaking callers.
 from .schema import Review, make_review_id
 from .csv_loader import load_csv
 from .json_loader import load_json
-from .scraper import ReviewSpider, scraped_items_to_reviews
 
 __all__ = [
     "Review",
     "make_review_id",
     "load_csv",
     "load_json",
-    "ReviewSpider",
-    "scraped_items_to_reviews",
 ]
