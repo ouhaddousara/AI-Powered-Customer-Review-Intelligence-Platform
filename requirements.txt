@@ -2,3 +2,23 @@
 pandas
 scrapy
 requests
+selenium
+
+# PDF generation/parsing (test fixtures + pdf_loader)
+reportlab
+pdfplumber
+
+# Kaggle dataset download
+kaggle
+
+# Layer 2 — Preprocessing
+langdetect
+
+# Layer 3 — OCR
+pillow
+numpy
+pytesseract
+easyocr
+paddleocr
+paddlepaddle
+python-Levenshtein
