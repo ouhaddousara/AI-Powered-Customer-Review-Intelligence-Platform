@@ -1,6 +1,7 @@
 from pathlib import Path
 from src.ingestion import load_json, load_csv
 from src.ingestion import load_pdf
+from src.ocr import load_images
 
 pdf_reviews = list(load_pdf(Path("data/raw/sample_review_report.pdf")))
 print(f"[PDF] Loaded {len(pdf_reviews)} reviews")
@@ -19,4 +20,9 @@ for r in csv_reviews:
 pdf_reviews = list(load_pdf(Path("data/raw/sample_review_report.pdf")))
 print(f"[PDF] Loaded {len(pdf_reviews)} reviews")
 for r in pdf_reviews[:3]:
+    print(r)
+
+ocr_reviews = list(load_images(Path("data/raw/ocr_test_images")))
+print(f"[OCR] Loaded {len(ocr_reviews)} reviews")
+for r in ocr_reviews[:3]:
     print(r)
