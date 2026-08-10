@@ -15,6 +15,14 @@ signals in the question ("complaints", "love") and filters the search
 to reviews where Layer 4's aspect sentiment matches, using metadata
 already stored at indexing time.
 
+Relevance threshold: is_relevant() checks the AVERAGE distance across
+all top_k results, not just the closest one. Calibrated empirically
+(see docs/technical_challenges.md) — an off-topic question can still
+produce one spuriously close match (e.g. a stray shared word), which
+would fool a min-distance check but not an average-based one. Below
+this threshold, the LLM is never called — avoids generating an answer
+from irrelevant context.
+
 Model choice: Qwen 3.6 27B (via Groq), switched from LLaMA 3.3 70B
 after benchmarking (see docs/llm_benchmark.md) — better handling of
 multilingual nuance, and LLaMA 3.3 70B is deprecated by Groq (2026-06-17).
@@ -31,6 +39,11 @@ from src.rag.index_builder import get_embedding_function, PERSIST_DIR, COLLECTIO
 
 LLM_MODEL = "qwen/qwen3.6-27b"
 TOP_K = 5
+
+DISTANCE_THRESHOLD = 0.69  # calibrated empirically — see docs/technical_challenges.md
+NO_RESULTS_MESSAGE = (
+    "I couldn't find any reviews relevant to this question in the dataset."
+)
 
 NEGATIVE_INTENT_KEYWORDS = [
     "complain", "problem", "issue", "wrong", "worst", "disappoint",
@@ -81,6 +94,8 @@ def retrieve_reviews(question: str, top_k: int = TOP_K) -> dict:
 
     where_clause = None
     if sentiment_filter:
+        # Match if ANY of the 4 aspects has this sentiment — a general
+        # question doesn't target one aspect specifically.
         where_clause = {
             "$or": [
                 {f"aspect_{aspect}": sentiment_filter}
@@ -93,6 +108,20 @@ def retrieve_reviews(question: str, top_k: int = TOP_K) -> dict:
         n_results=top_k,
         where=where_clause,
     )
+
+
+def is_relevant(results: dict, threshold: float = DISTANCE_THRESHOLD) -> bool:
+    """
+    Checks the AVERAGE distance across all retrieved results, not just
+    the closest one — a single spuriously close match (e.g. an
+    off-topic question happening to share a word with one review)
+    would fool a min-distance check but not an average-based one.
+    """
+    distances = results.get("distances", [[]])[0]
+    if not distances:
+        return False
+    avg_distance = sum(distances) / len(distances)
+    return avg_distance <= threshold
 
 
 def build_context(results: dict) -> str:
@@ -110,8 +139,14 @@ def build_context(results: dict) -> str:
 def answer_question(question: str, groq_api_key: str, top_k: int = TOP_K) -> dict:
     """
     Returns {"answer": str, "sources": list of {product_id, rating, text_raw}}.
+    Returns NO_RESULTS_MESSAGE with empty sources if no retrieved
+    review is close enough to be considered relevant.
     """
     results = retrieve_reviews(question, top_k)
+
+    if not is_relevant(results):
+        return {"answer": NO_RESULTS_MESSAGE, "sources": []}
+
     context = build_context(results)
 
     client = Groq(api_key=groq_api_key)
