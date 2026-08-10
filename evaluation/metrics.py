@@ -9,10 +9,13 @@ with the chosen tools):
    relevant review in the 5000+ corpus, infeasible to hand-annotate).
    Measures, of the k retrieved reviews, how many are genuinely
    relevant, checked against a small hand-verified test set.
-2. Faithfulness — LLM-as-judge: a second model call checks whether
+2. MRR (Mean Reciprocal Rank) — complements Precision@k: measures how
+   quickly the FIRST relevant result appears (1.0 if it's #1, 0.5 if
+   #2, etc.), rather than overall relevant density across all k.
+3. Faithfulness — LLM-as-judge: a second model call checks whether
    every claim in the answer is actually supported by the retrieved
    context, catching hallucination that a human skim might miss.
-3. End-to-end latency — question in, answer out, real wall-clock time.
+4. End-to-end latency — question in, answer out, real wall-clock time.
 """
 
 import time
@@ -80,6 +83,22 @@ def precision_at_k(question: str, relevant_ids: List[str], top_k: int = 5) -> fl
     return hits / len(retrieved_ids)
 
 
+def mrr(question: str, relevant_ids: List[str], top_k: int = 5) -> float:
+    """
+    Mean Reciprocal Rank for a single question: 1/rank of the first
+    relevant result (1.0 if it's the top result, 0.5 if second, etc.),
+    0.0 if none of the top_k results are relevant. Complements
+    Precision@k — precision measures overall relevant density,
+    MRR measures how quickly the FIRST useful result appears.
+    """
+    results = retrieve_reviews(question, top_k=top_k)
+    retrieved_ids = [meta["product_id"] for meta in results["metadatas"][0]]
+    for rank, pid in enumerate(retrieved_ids, start=1):
+        if pid in relevant_ids:
+            return 1.0 / rank
+    return 0.0
+
+
 def judge_faithfulness(context: str, answer: str, groq_api_key: str) -> dict:
     """
     Uses the same model family (Qwen via Groq) as a judge, in a
@@ -104,7 +123,7 @@ def judge_faithfulness(context: str, answer: str, groq_api_key: str) -> dict:
 def run_evaluation(groq_api_key: str) -> None:
     from src.rag.qa import build_context
 
-    precisions, latencies, faithfulness_results = [], [], []
+    precisions, mrr_scores, latencies, faithfulness_results = [], [], [], []
 
     for case in TEST_SET:
         print(f"\n=== {case.question} ===")
@@ -113,6 +132,11 @@ def run_evaluation(groq_api_key: str) -> None:
         p = precision_at_k(case.question, case.relevant_product_ids)
         precisions.append(p)
         print(f"  Precision@5: {p:.2f}")
+
+        # MRR
+        m = mrr(case.question, case.relevant_product_ids)
+        mrr_scores.append(m)
+        print(f"  MRR: {m:.2f}")
 
         # Latency + faithfulness (needs the actual answer + context)
         start = time.time()
@@ -129,6 +153,7 @@ def run_evaluation(groq_api_key: str) -> None:
 
     print("\n=== Summary ===")
     print(f"Avg Precision@5: {sum(precisions) / len(precisions):.2f}")
+    print(f"Avg MRR: {sum(mrr_scores) / len(mrr_scores):.2f}")
     print(f"Avg Latency: {sum(latencies) / len(latencies):.2f}s")
     print(f"Faithfulness pass rate: {sum(faithfulness_results)}/{len(faithfulness_results)}")
 

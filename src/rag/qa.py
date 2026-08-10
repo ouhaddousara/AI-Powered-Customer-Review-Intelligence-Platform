@@ -39,6 +39,9 @@ import chromadb
 
 from src.rag.index_builder import get_embedding_function, PERSIST_DIR, COLLECTION_NAME
 
+import logging
+import time
+
 LLM_MODEL = "qwen/qwen3.6-27b"
 TOP_K = 5
 
@@ -65,6 +68,9 @@ Rules:
 explicitly — do not guess or infer beyond what is stated.
 - When you make a claim, mention which review supports it (by product ID).
 - Be concise and factual, not promotional."""
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger("rag.qa")
 
 
 def get_collection():
@@ -148,21 +154,22 @@ def build_context(results: dict) -> str:
 
 
 def answer_question(question: str, groq_api_key: str, top_k: int = TOP_K) -> dict:
-    """
-    Returns {"answer": str, "sources": list of {product_id, rating, text_raw}}.
-    Returns NO_RESULTS_MESSAGE with empty sources if the corpus has
-    nothing relevant to the question (checked before any sentiment
-    filtering is applied).
-    """
+    start = time.time()
+
     if not check_relevance(question, top_k):
+        logger.info(
+            "query=%r result=rejected reason=irrelevant elapsed=%.2fs",
+            question, time.time() - start
+        )
         return {"answer": NO_RESULTS_MESSAGE, "sources": []}
 
     results = retrieve_reviews(question, top_k)
 
-    # Edge case: relevant overall, but the sentiment filter narrowed
-    # to zero matches (e.g. asking for complaints on a topic where no
-    # review has been tagged negative on any aspect).
     if not results["documents"][0]:
+        logger.info(
+            "query=%r result=rejected reason=empty_after_filter elapsed=%.2fs",
+            question, time.time() - start
+        )
         return {"answer": NO_RESULTS_MESSAGE, "sources": []}
 
     context = build_context(results)
@@ -186,6 +193,12 @@ def answer_question(question: str, groq_api_key: str, top_k: int = TOP_K) -> dic
         }
         for meta in results["metadatas"][0]
     ]
+
+    elapsed = time.time() - start
+    logger.info(
+        "query=%r result=success model=%s reviews_retrieved=%d elapsed=%.2fs",
+        question, LLM_MODEL, len(sources), elapsed
+    )
 
     return {
         "answer": completion.choices[0].message.content,
