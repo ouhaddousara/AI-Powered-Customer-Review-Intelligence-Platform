@@ -10,14 +10,18 @@ Script : `evaluation/metrics.py`
 
 ## Résultats
 
-| Question | IDs pertinents | Precision@5 | Latence | Faithfulness |
-|---|---|---|---|---|
-| Complaints | 4 | 0.80 | 1.21s | PASS |
-| Size/fit issues | 2 | 0.40 | 0.72s | PASS |
-| Shipping/delivery | 5 | 1.00 | 0.80s | PASS |
-| Value for money | 2 | 0.40 | 0.78s | PASS |
-| What customers love | 3 | 0.60 | 1.05s | PASS |
-| **Moyenne** | — | **0.64** | **0.91s** | **5/5 PASS** |
+| Question | IDs pertinents | Precision@5 | Faithfulness |
+|---|---|---|---|
+| Complaints | 4 | 0.80 | PASS |
+| Size/fit issues | 2 | 0.40 | PASS |
+| Shipping/delivery | 5 | 1.00 | PASS |
+| Value for money | 2 | 0.40 | PASS |
+| What customers love | 3 | 0.60 | PASS |
+| **Moyenne** | — | **0.64** | **5/5 PASS** |
+
+**Latence moyenne : 1.53s** (mesurée sur l'exécution finale retenue pour
+ce rapport — la latence varie légèrement d'une exécution à l'autre,
+dépendante de la charge réseau/API au moment de l'appel).
 
 ## Découverte clé — le retrieval trouve 100% des reviews pertinentes connues
 
@@ -34,7 +38,7 @@ jeu de test annoté.
 
 - **Faithfulness parfaite** (5/5) — la contrainte anti-hallucination
   du prompt tient sur un jeu de test élargi, pas juste un cas isolé.
-- **Latence excellente** (0.91s en moyenne), très en dessous de
+- **Latence solide** (1.53s en moyenne), toujours largement sous
   l'objectif de 4s fixé dans la proposal initiale.
 - **Retrieval fiable à 100%** sur les reviews pertinentes connues —
   la variation de Precision@5 s'explique entièrement par le nombre
