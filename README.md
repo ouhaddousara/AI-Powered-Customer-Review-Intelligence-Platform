@@ -74,7 +74,7 @@ is then constrained to generate only from the retrieved context, never from
 its own memory, with faithfulness verified empirically via LLM-as-judge
 rather than just asserted in the prompt.
 
-![Architecture diagram](docs/architecture.png)
+[View the full architecture diagram](docs/system_architecture.png)
 
 Each layer was built, tested on real data, and committed before moving to
 the next — no layer was left partially finished while building on top of it.
