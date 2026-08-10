@@ -3,6 +3,7 @@ import chromadb
 from src.rag.index_builder import get_embedding_function, PERSIST_DIR, COLLECTION_NAME
 from dotenv import load_dotenv
 from src.rag.qa import answer_question, detect_sentiment_filter
+from src.rag.qa import get_collection
 
 
 client = chromadb.PersistentClient(path=PERSIST_DIR)
@@ -39,3 +40,14 @@ print(result["answer"])
 print("\n--- Sources citées ---")
 for src in result["sources"]:
     print(f"[{src['product_id']}, rating {src['rating']}] {src['text_raw'][:80]}...")
+
+
+collection = get_collection()
+
+# Question clairement pertinente
+relevant = collection.query(query_texts=["What do customers complain about most?"], n_results=5)
+print("Pertinente :", relevant["distances"][0])
+
+# Question clairement hors-sujet
+irrelevant = collection.query(query_texts=["What is the capital of France?"], n_results=5)
+print("Hors-sujet :", irrelevant["distances"][0])
