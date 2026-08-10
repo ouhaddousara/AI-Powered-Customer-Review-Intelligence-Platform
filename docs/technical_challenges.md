@@ -56,3 +56,38 @@ Chaque blocage a été traité avec la même méthode : diagnostiquer avant
 d'agir, tester une hypothèse à la fois, accepter une limite documentée
 plutôt que de s'acharner indéfiniment quand le coût de la résolution
 dépasse la valeur récupérable (pagination Jumia, PaddleOCR).
+
+## Layer 5 — OCR
+
+### Seuil de pertinence — calibration empirique et bug de couplage
+
+Ajout d'un garde-fou pour éviter que le LLM ne génère une réponse à
+partir de contexte hors-sujet quand aucune review pertinente n'existe.
+
+**Calibration** : la première approche envisagée (seuil sur la distance
+minimale du meilleur résultat) a été testée avant d'être codée — et
+rejetée sur preuve, pas sur intuition. Une question hors-sujet
+("What is the capital of France?") produisait parfois un match isolé
+trompeur avec une distance plus basse qu'une vraie question pertinente,
+faussant un seuil basé sur le minimum seul. La moyenne des distances
+sur les k résultats s'est révélée un signal fiable : ~0.66 pour une
+question pertinente, ~0.71 pour une question hors-sujet — seuil fixé
+à 0.69 sur cette base observée.
+
+**Bug découvert en testant, pas en théorisant** : une fois le seuil
+implémenté, une question réellement pertinente ("What do customers
+complain about most?") était incorrectement rejetée. Cause : la
+vérification de pertinence utilisait la recherche **filtrée** par
+sentiment (Layer 4), un sous-ensemble de résultats différent de celui
+utilisé pour calibrer le seuil — comparaison biaisée entre deux mesures
+non comparables. Corrigé en découplant totalement les deux logiques :
+`check_relevance()` interroge toujours l'index **sans filtre**, le
+filtre sentiment n'intervenant que dans la recherche réelle utilisée
+pour construire le contexte, une fois la pertinence confirmée.
+
+**Leçon** : deux fonctionnalités ajoutées à des moments différents du
+projet (filtre sentiment en premier, seuil de pertinence ensuite)
+peuvent interagir silencieusement si elles partagent le même chemin de
+code sans qu'on y pense explicitement — d'où l'importance de tester
+chaque ajout contre des cas concrets (question pertinente ET hors-sujet)
+avant de le considérer terminé.
