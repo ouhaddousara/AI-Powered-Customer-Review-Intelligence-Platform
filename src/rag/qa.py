@@ -6,17 +6,34 @@ the retrieved reviews, never from its own general knowledge, and to
 say so explicitly when the context doesn't contain the answer — this
 is what makes the system's answers verifiable rather than plausible
 guesses.
+
+Sentiment-aware retrieval: plain similarity search finds text on the
+right topic but can't distinguish a positive review from a negative
+one mentioning the same subject — it ranks by semantic closeness, not
+sentiment polarity. detect_sentiment_filter() catches simple intent
+signals in the question ("complaints", "love") and filters the search
+to reviews where Layer 4's aspect sentiment matches, using metadata
+already stored at indexing time.
 """
 
-from typing import List
+from typing import List, Optional
 
 from groq import Groq
+import chromadb
 
 from src.rag.index_builder import get_embedding_function, PERSIST_DIR, COLLECTION_NAME
-import chromadb
 
 LLM_MODEL = "llama-3.3-70b-versatile"
 TOP_K = 5
+
+NEGATIVE_INTENT_KEYWORDS = [
+    "complain", "problem", "issue", "wrong", "worst", "disappoint",
+    "défaut", "problème", "plainte", "pire",
+]
+POSITIVE_INTENT_KEYWORDS = [
+    "love", "best", "great", "recommend",
+    "aime", "meilleur", "recommand",
+]
 
 SYSTEM_PROMPT = """You are a product review analyst. Answer the user's \
 question using ONLY the customer reviews provided in the context below. \
@@ -37,9 +54,41 @@ def get_collection():
     )
 
 
+def detect_sentiment_filter(question: str) -> Optional[str]:
+    """
+    Simple keyword-based intent detection — same approach as the
+    aspect keyword matching in Layer 4, for consistency. Returns
+    "negative", "positive", or None (no filter, rely on similarity
+    alone).
+    """
+    q = question.lower()
+    if any(kw in q for kw in NEGATIVE_INTENT_KEYWORDS):
+        return "negative"
+    if any(kw in q for kw in POSITIVE_INTENT_KEYWORDS):
+        return "positive"
+    return None
+
+
 def retrieve_reviews(question: str, top_k: int = TOP_K) -> dict:
     collection = get_collection()
-    return collection.query(query_texts=[question], n_results=top_k)
+    sentiment_filter = detect_sentiment_filter(question)
+
+    where_clause = None
+    if sentiment_filter:
+        # Match if ANY of the 4 aspects has this sentiment — a general
+        # question doesn't target one aspect specifically.
+        where_clause = {
+            "$or": [
+                {f"aspect_{aspect}": sentiment_filter}
+                for aspect in ("product", "shipping", "service", "price")
+            ]
+        }
+
+    return collection.query(
+        query_texts=[question],
+        n_results=top_k,
+        where=where_clause,
+    )
 
 
 def build_context(results: dict) -> str:

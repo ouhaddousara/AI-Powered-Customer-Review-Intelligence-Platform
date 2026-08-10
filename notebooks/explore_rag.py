@@ -2,7 +2,7 @@ import os
 import chromadb
 from src.rag.index_builder import get_embedding_function, PERSIST_DIR, COLLECTION_NAME
 from dotenv import load_dotenv
-from src.rag.qa import answer_question
+from src.rag.qa import answer_question, detect_sentiment_filter
 
 
 client = chromadb.PersistentClient(path=PERSIST_DIR)
@@ -29,10 +29,10 @@ for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
 
 load_dotenv()
 
-result = answer_question(
-    question="What do customers complain about most?",
-    groq_api_key=os.getenv("GROQ_API_KEY"),
-)
+question = "What do customers complain about most?"
+print(f"\nFiltre détecté : {detect_sentiment_filter(question)}")
+
+result = answer_question(question=question, groq_api_key=os.getenv("GROQ_API_KEY"))
 
 print("\n--- Réponse du LLM ---")
 print(result["answer"])
