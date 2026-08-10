@@ -40,6 +40,7 @@ assumed.
 - [Installation](#installation)
 - [Usage](#usage)
 - [Testing & Observability](#testing--observability)
+- [CI/CD](#cicd)
 - [Engineering Highlights](#engineering-highlights)
 - [Limitations & Future Work](#limitations--future-work)
 - [Detailed Reports](#detailed-reports)
