@@ -8,8 +8,15 @@
 ![OCR](https://img.shields.io/badge/OCR-Tesseract-2ea44f)
 ![Interface](https://img.shields.io/badge/UI-Gradio-ff7c00)
 ![Tests](https://github.com/ouhaddousara/AI-Powered-Customer-Review-Intelligence-Platform/actions/workflows/ci.yml/badge.svg)
-![Last Commit](https://img.shields.io/github/last-commit/ouhaddousara/AI-Powered-Customer-Review-Intelligence-Platform)
-![Code Size](https://img.shields.io/github/languages/code-size/ouhaddousara/AI-Powered-Customer-Review-Intelligence-Platform)
+
+![Scrapy](https://img.shields.io/badge/Scrapy-60A839?style=flat-square&logo=scrapy&logoColor=white)
+![Selenium](https://img.shields.io/badge/Selenium-43B02A?style=flat-square&logo=selenium&logoColor=white)
+![HuggingFace](https://img.shields.io/badge/HuggingFace-FFD21E?style=flat-square&logo=huggingface&logoColor=black)
+![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![pytest](https://img.shields.io/badge/pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
+![Ruff](https://img.shields.io/badge/Ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black)
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
 
 An end-to-end NLP + RAG pipeline that transforms raw, unstructured e-commerce
 reviews — scraped, exported, scanned, or photographed — into a conversational
