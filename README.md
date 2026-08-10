@@ -53,63 +53,28 @@ citations back to the exact reviews used — never a fabricated answer.
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    subgraph L1["Layer 1 — Data Ingestion"]
-        direction LR
-        A1[JSON<br/>Amazon Reviews]
-        A2[CSV<br/>retailer export]
-        A3[Web Scraping<br/>Jumia + Selenium]
-        A4[PDF<br/>table extraction]
-    end
+The system is a 5-layer RAG pipeline, followed by three delivery/validation
+stages (benchmark, interface, evaluation). Every layer transforms and
+enriches the data without ever losing traceability back to the source
+review — a principle set in `schema.py` from the very first commit
+(`text_raw` is never modified) and carried through to the final cited
+answer.
 
-    SCHEMA[("Review schema<br/>text_raw · product_id · rating<br/>review_date · metadata")]
+Four heterogeneous ingestion sources (JSON, CSV, web scraping, PDF) all
+converge into a single `Review` contract before touching the rest of the
+pipeline — each loader only needs to know its own input format, and
+everything downstream only needs to know the shared schema. From there,
+preprocessing, OCR, and NLP analysis progressively enrich each review
+(cleaned text, extracted text from images, aspect-level sentiment, brand/SKU
+entities) before indexing into a vector store. At query time, retrieval is
+**sentiment-aware** — filtered on Layer 4's metadata when a question signals
+intent (e.g. "complaints") — not just semantic similarity, so a 5★ review
+complaining about price on one aspect is still correctly surfaced. The LLM
+is then constrained to generate only from the retrieved context, never from
+its own memory, with faithfulness verified empirically via LLM-as-judge
+rather than just asserted in the prompt.
 
-    L2["Layer 2 — Preprocessing<br/>technical cleaning + language detection"]
-    L3["Layer 3 — OCR<br/>Tesseract (benchmark winner)"]
-    L4["Layer 4 — NLP Analysis<br/>aspect sentiment + brand/SKU NER"]
-
-    subgraph L5["Layer 5 — RAG Q&A"]
-        direction TB
-        EMB[Multilingual embeddings]
-        IDX[(ChromaDB<br/>vector index + metadata)]
-        RET[Sentiment-aware<br/>similarity retrieval]
-        LLM[LLM generation<br/>constrained to retrieved context]
-        EMB --> IDX
-        IDX --> RET
-        RET --> LLM
-    end
-
-    BENCH["LLM Benchmark<br/>LLaMA 3.3 vs Qwen 3.6 vs Mistral"]
-    UI["Gradio Interface<br/>question → answer + cited sources"]
-    EVAL["Final Evaluation<br/>precision@5 · latency · faithfulness"]
-
-    A1 --> SCHEMA
-    A2 --> SCHEMA
-    A3 --> SCHEMA
-    A4 --> SCHEMA
-    SCHEMA --> L2 --> L3 --> L4 --> L5
-    L5 --> BENCH --> UI --> EVAL
-
-    classDef ingestion fill:#e0f2fe,stroke:#38bdf8,color:#0c4a6e
-    classDef schema fill:#f1f5f9,stroke:#64748b,color:#1e293b
-    classDef prep fill:#e0f2fe,stroke:#38bdf8,color:#0c4a6e
-    classDef ocr fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    classDef nlp fill:#fce7f3,stroke:#ec4899,color:#831843
-    classDef rag fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
-    classDef bench fill:#dcfce7,stroke:#22c55e,color:#14532d
-    classDef ui fill:#ffedd5,stroke:#f97316,color:#7c2d12
-    classDef eval fill:#f1f5f9,stroke:#64748b,color:#1e293b
-
-    class A1,A2,A3,A4 ingestion
-    class SCHEMA schema
-    class L2 prep
-    class L3 ocr
-    class L4 nlp
-    class BENCH bench
-    class UI ui
-    class EVAL eval
-```
+![Architecture diagram](docs/architecture.png)
 
 Each layer was built, tested on real data, and committed before moving to
 the next — no layer was left partially finished while building on top of it.
