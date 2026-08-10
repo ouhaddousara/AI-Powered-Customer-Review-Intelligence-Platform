@@ -22,3 +22,7 @@ easyocr
 paddleocr
 paddlepaddle
 python-Levenshtein
+
+# Layer 6 — Benchmarking
+google-generativeai
+mistralai

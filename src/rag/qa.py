@@ -14,6 +14,12 @@ sentiment polarity. detect_sentiment_filter() catches simple intent
 signals in the question ("complaints", "love") and filters the search
 to reviews where Layer 4's aspect sentiment matches, using metadata
 already stored at indexing time.
+
+Model choice: Qwen 3.6 27B (via Groq), switched from LLaMA 3.3 70B
+after benchmarking (see docs/llm_benchmark.md) — better handling of
+multilingual nuance, and LLaMA 3.3 70B is deprecated by Groq (2026-06-17).
+reasoning_effort="none" is REQUIRED — Qwen is a reasoning model that
+otherwise leaks its internal <think> trace into the response.
 """
 
 from typing import List, Optional
@@ -23,7 +29,7 @@ import chromadb
 
 from src.rag.index_builder import get_embedding_function, PERSIST_DIR, COLLECTION_NAME
 
-LLM_MODEL = "llama-3.3-70b-versatile"
+LLM_MODEL = "qwen/qwen3.6-27b"
 TOP_K = 5
 
 NEGATIVE_INTENT_KEYWORDS = [
@@ -75,8 +81,6 @@ def retrieve_reviews(question: str, top_k: int = TOP_K) -> dict:
 
     where_clause = None
     if sentiment_filter:
-        # Match if ANY of the 4 aspects has this sentiment — a general
-        # question doesn't target one aspect specifically.
         where_clause = {
             "$or": [
                 {f"aspect_{aspect}": sentiment_filter}
@@ -118,6 +122,7 @@ def answer_question(question: str, groq_api_key: str, top_k: int = TOP_K) -> dic
             {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"},
         ],
         temperature=0.2,
+        reasoning_effort="none",
     )
 
     sources = [
