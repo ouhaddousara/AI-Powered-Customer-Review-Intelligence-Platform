@@ -7,7 +7,9 @@
 ![Vector Store](https://img.shields.io/badge/vector%20store-ChromaDB-blueviolet)
 ![OCR](https://img.shields.io/badge/OCR-Tesseract-2ea44f)
 ![Interface](https://img.shields.io/badge/UI-Gradio-ff7c00)
-![Tests](https://img.shields.io/badge/tests-9%20passing-2ea44f)
+![Tests](https://github.com/ouhaddousara/review-intel-platform/actions/workflows/tests.yml/badge.svg)
+![Last Commit](https://img.shields.io/github/last-commit/ouhaddousara/review-intel-platform)
+![Code Size](https://img.shields.io/github/languages/code-size/ouhaddousara/review-intel-platform)
 
 An end-to-end NLP + RAG pipeline that transforms raw, unstructured e-commerce
 reviews — scraped, exported, scanned, or photographed — into a conversational
@@ -303,6 +305,20 @@ request-level observability a production deployment would need:
 query='What do customers complain about most?' result=success
 model=qwen/qwen3.6-27b reviews_retrieved=5 elapsed=1.39s
 ```
+
+---
+
+## CI/CD
+
+Every push and pull request to `main` triggers a GitHub Actions pipeline:
+
+Lint (ruff) → Unit tests (pytest) → Docker build validation
+
+
+The Docker image is built and validated on every push but **not pushed to a
+registry or deployed** — this project runs locally by design, keeping API
+keys out of any public-facing infrastructure. See [Limitations & Future
+Work](#limitations--future-work) for the deployment path this leaves open.
 
 ---
 
