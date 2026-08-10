@@ -9,14 +9,14 @@
 ![Interface](https://img.shields.io/badge/UI-Gradio-ff7c00)
 ![Tests](https://github.com/ouhaddousara/AI-Powered-Customer-Review-Intelligence-Platform/actions/workflows/ci.yml/badge.svg)
 
-![Scrapy](https://img.shields.io/badge/Scrapy-60A839?style=flat-square&logo=scrapy&logoColor=white)
-![Selenium](https://img.shields.io/badge/Selenium-43B02A?style=flat-square&logo=selenium&logoColor=white)
-![HuggingFace](https://img.shields.io/badge/HuggingFace-FFD21E?style=flat-square&logo=huggingface&logoColor=black)
-![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
-![pytest](https://img.shields.io/badge/pytest-0A9EDC?style=flat-square&logo=pytest&logoColor=white)
-![Ruff](https://img.shields.io/badge/Ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black)
-![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)
+![Scraping](https://img.shields.io/badge/Scraping-Scrapy-60A839?logo=scrapy&logoColor=white)
+![Automation](https://img.shields.io/badge/Automation-Selenium-43B02A?logo=selenium&logoColor=white)
+![NLP Models](https://img.shields.io/badge/NLP%20Models-HuggingFace-FFD21E?logo=huggingface&logoColor=black)
+![Data Handling](https://img.shields.io/badge/Data%20Handling-Pandas-150458?logo=pandas&logoColor=white)
+![Container](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker&logoColor=white)
+![Testing](https://img.shields.io/badge/Testing-pytest-0A9EDC?logo=pytest&logoColor=white)
+![Linting](https://img.shields.io/badge/Linting-Ruff-D7FF64?logo=ruff&logoColor=black)
+![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white)
 
 An end-to-end NLP + RAG pipeline that transforms raw, unstructured e-commerce
 reviews — scraped, exported, scanned, or photographed — into a conversational
