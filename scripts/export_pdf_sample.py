@@ -10,13 +10,13 @@ Usage:
 """
 
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 import pandas as pd
-from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from xml.sax.saxutils import escape
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 INPUT_PATH = Path("data/raw/Reviews.csv")
 OUTPUT_PATH = Path("data/raw/sample_review_report.pdf")

@@ -1,0 +1,6 @@
+[lint]
+ignore = [
+    "BLE001",  # broad except is intentional in benchmark scripts (must survive any engine failing)
+    "RUF012",  # Scrapy spider class attributes are a framework convention, not a bug
+    "DTZ007",  # review dates have no timezone info in the source data
+]

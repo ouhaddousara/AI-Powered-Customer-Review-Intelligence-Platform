@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 from groq import Groq
 from mistralai.client import Mistral
 
-from src.rag.qa import retrieve_reviews, build_context, SYSTEM_PROMPT
+from src.rag.qa import SYSTEM_PROMPT, build_context, retrieve_reviews
 
 load_dotenv()
 

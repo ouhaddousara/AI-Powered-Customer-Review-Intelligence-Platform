@@ -32,15 +32,14 @@ reasoning_effort="none" is REQUIRED — Qwen is a reasoning model that
 otherwise leaks its internal <think> trace into the response.
 """
 
-from typing import List, Optional
-
-from groq import Groq
-import chromadb
-
-from src.rag.index_builder import get_embedding_function, PERSIST_DIR, COLLECTION_NAME
 
 import logging
 import time
+
+import chromadb
+from groq import Groq
+
+from src.rag.index_builder import COLLECTION_NAME, PERSIST_DIR, get_embedding_function
 
 LLM_MODEL = "qwen/qwen3.6-27b"
 TOP_K = 5
@@ -81,7 +80,7 @@ def get_collection():
     )
 
 
-def detect_sentiment_filter(question: str) -> Optional[str]:
+def detect_sentiment_filter(question: str) -> str | None:
     """
     Simple keyword-based intent detection — same approach as the
     aspect keyword matching in Layer 4, for consistency. Returns

@@ -20,11 +20,10 @@ with the chosen tools):
 
 import time
 from dataclasses import dataclass, field
-from typing import List
 
 from groq import Groq
 
-from src.rag.qa import answer_question, retrieve_reviews, LLM_MODEL
+from src.rag.qa import LLM_MODEL, answer_question, retrieve_reviews
 
 JUDGE_SYSTEM_PROMPT = """You are a strict fact-checker. You will be given \
 a CONTEXT (customer reviews) and an ANSWER generated from that context. \
@@ -45,7 +44,7 @@ class TestCase:
     question: str
     # Product IDs manually verified as genuinely relevant to the question —
     # a hand-checked subset, not an exhaustive corpus-wide ground truth.
-    relevant_product_ids: List[str] = field(default_factory=list)
+    relevant_product_ids: list[str] = field(default_factory=list)
 
 
 # Hand-verified against real retrieval output seen during development —
@@ -74,7 +73,7 @@ TEST_SET = [
 ]
 
 
-def precision_at_k(question: str, relevant_ids: List[str], top_k: int = 5) -> float:
+def precision_at_k(question: str, relevant_ids: list[str], top_k: int = 5) -> float:
     results = retrieve_reviews(question, top_k=top_k)
     retrieved_ids = [meta["product_id"] for meta in results["metadatas"][0]]
     if not retrieved_ids:
@@ -83,7 +82,7 @@ def precision_at_k(question: str, relevant_ids: List[str], top_k: int = 5) -> fl
     return hits / len(retrieved_ids)
 
 
-def mrr(question: str, relevant_ids: List[str], top_k: int = 5) -> float:
+def mrr(question: str, relevant_ids: list[str], top_k: int = 5) -> float:
     """
     Mean Reciprocal Rank for a single question: 1/rank of the first
     relevant result (1.0 if it's the top result, 0.5 if second, etc.),
@@ -160,6 +159,7 @@ def run_evaluation(groq_api_key: str) -> None:
 
 if __name__ == "__main__":
     import os
+
     from dotenv import load_dotenv
 
     load_dotenv()

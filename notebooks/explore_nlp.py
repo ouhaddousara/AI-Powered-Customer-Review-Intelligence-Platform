@@ -1,8 +1,8 @@
-from src.ingestion import load_json
-from src.preprocessing import preprocess_review
-from src.nlp import analyze_review
 from pathlib import Path
-from src.nlp import extract_entities
+
+from src.ingestion import load_json
+from src.nlp import analyze_review, extract_entities
+from src.preprocessing import preprocess_review
 
 all_reviews = list(load_json(Path("data/raw/amazon_reviews_sample.jsonl")))
 

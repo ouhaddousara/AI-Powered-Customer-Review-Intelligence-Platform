@@ -11,11 +11,11 @@ import json
 import time
 from pathlib import Path
 
-import pytesseract
 import easyocr
+import Levenshtein
+import pytesseract
 from paddleocr import PaddleOCR
 from PIL import Image
-import Levenshtein
 
 IMAGES_DIR = Path("data/raw/ocr_test_images")
 GROUND_TRUTH_PATH = IMAGES_DIR / "ground_truth.json"

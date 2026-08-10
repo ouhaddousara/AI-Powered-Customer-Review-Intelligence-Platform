@@ -1,5 +1,6 @@
 from pathlib import Path
-from src.ingestion import load_json, load_csv, load_pdf
+
+from src.ingestion import load_csv, load_json, load_pdf
 from src.preprocessing import preprocess_review
 
 sources = {

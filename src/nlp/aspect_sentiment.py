@@ -14,7 +14,6 @@ we don't have — a reasonable first version, not a permanent ceiling.
 
 import re
 from collections import defaultdict
-from typing import Optional
 
 from transformers import pipeline
 
@@ -75,7 +74,7 @@ def _stars_to_label(star_label: str) -> str:
     return "positive"
 
 
-def analyze_aspects(text: str) -> dict[str, Optional[str]]:
+def analyze_aspects(text: str) -> dict[str, str | None]:
     sentiment = _get_sentiment_pipeline()
     aspect_sentences = defaultdict(list)
 
@@ -89,7 +88,7 @@ def analyze_aspects(text: str) -> dict[str, Optional[str]]:
     if not aspect_sentences:
         aspect_sentences["product"].append(text)
 
-    results: dict[str, Optional[str]] = {aspect: None for aspect in ASPECT_KEYWORDS}
+    results: dict[str, str | None] = {aspect: None for aspect in ASPECT_KEYWORDS}
     for aspect, sentences in aspect_sentences.items():
         combined = " ".join(sentences)[:512]
         prediction = sentiment(combined)[0]

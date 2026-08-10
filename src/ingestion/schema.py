@@ -3,9 +3,8 @@ Common review schema — shared data contract for all ingestion sources.
 """
 
 import hashlib
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import date
-from typing import Optional
 
 
 @dataclass
@@ -14,10 +13,10 @@ class Review:
     product_id: str
     source: str
     text_raw: str
-    text_clean: Optional[str] = None
-    rating: Optional[int] = None
-    review_date: Optional[date] = None
-    language: Optional[str] = None
+    text_clean: str | None = None
+    rating: int | None = None
+    review_date: date | None = None
+    language: str | None = None
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:

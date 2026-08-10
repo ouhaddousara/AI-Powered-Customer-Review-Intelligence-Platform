@@ -1,6 +1,6 @@
 from pathlib import Path
-from src.ingestion import load_json, load_csv
-from src.ingestion import load_pdf
+
+from src.ingestion import load_csv, load_json, load_pdf
 from src.ocr import load_images
 
 pdf_reviews = list(load_pdf(Path("data/raw/sample_review_report.pdf")))

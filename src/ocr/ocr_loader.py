@@ -9,8 +9,8 @@ incompatibility (paddlepaddle 3.3.x oneDNN/CPU bug) and, once
 worked around, produced unusable output (score 1.116, 95.2s).
 """
 
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 import pytesseract
 from PIL import Image

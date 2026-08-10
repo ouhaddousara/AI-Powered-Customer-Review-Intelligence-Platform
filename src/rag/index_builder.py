@@ -7,8 +7,6 @@ source review, no ambiguity about which part of a merged chunk was
 used.
 """
 
-from pathlib import Path
-from typing import List
 
 import chromadb
 from chromadb.utils import embedding_functions
@@ -26,7 +24,7 @@ def get_embedding_function():
     )
 
 
-def build_index(reviews: List[Review], persist_dir: str = PERSIST_DIR) -> None:
+def build_index(reviews: list[Review], persist_dir: str = PERSIST_DIR) -> None:
     """
     Embed each review (1 review = 1 chunk) and store it in a
     persistent ChromaDB collection. Metadata includes per-aspect

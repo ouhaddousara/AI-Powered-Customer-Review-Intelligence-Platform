@@ -2,9 +2,10 @@
 CSV ingestion — retailer CSV export format.
 """
 
-import pandas as pd
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
+
+import pandas as pd
 
 from .schema import Review, make_review_id
 

@@ -158,7 +158,7 @@ THINKING_HTML = """
 def rating_to_stars(rating) -> str:
     if rating is None or rating < 0:
         return "<span style='color:#8b93a3; font-size:0.85em;'>No rating</span>"
-    filled = int(round(rating))
+    filled = round(rating)
     stars = "".join(
         f"<span style='color:{'#f0b429' if i < filled else '#3a4257'};'>★</span>"
         for i in range(5)

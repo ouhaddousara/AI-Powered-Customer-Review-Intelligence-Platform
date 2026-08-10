@@ -19,12 +19,12 @@ product.
 
 import re
 import time
+from collections.abc import Iterator
 from datetime import datetime
-from typing import Iterator, Optional
 
 from parsel import Selector
-from scrapy.spiders import CrawlSpider, Rule
 from scrapy.linkextractors import LinkExtractor
+from scrapy.spiders import CrawlSpider, Rule
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
@@ -140,7 +140,7 @@ def parse_reviews(html: str, product_id: str) -> Iterator[Review]:
         )
 
 
-def _parse_rating(text: str) -> Optional[int]:
+def _parse_rating(text: str) -> int | None:
     match = re.match(r"(\d)", text.strip())
     return int(match.group(1)) if match else None
 

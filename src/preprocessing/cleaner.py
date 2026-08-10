@@ -12,9 +12,8 @@ text_raw is never modified — this function only populates text_clean.
 
 import html
 import re
-from typing import Optional
 
-from langdetect import detect, LangDetectException
+from langdetect import LangDetectException, detect
 
 from src.ingestion.schema import Review
 
@@ -42,7 +41,7 @@ def clean_text(text: str) -> str:
 MIN_CHARS_FOR_LANG_DETECTION = 20
 
 
-def detect_language(text: str) -> Optional[str]:
+def detect_language(text: str) -> str | None:
     """
     Detect language on the cleaned text. Returns None (rather than a
     guess) below MIN_CHARS_FOR_LANG_DETECTION — langdetect's

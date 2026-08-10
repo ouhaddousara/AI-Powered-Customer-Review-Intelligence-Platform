@@ -3,9 +3,9 @@ JSON Lines ingestion — Amazon Reviews 2023 format (McAuley Lab).
 """
 
 import json
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator
 
 from .schema import Review, make_review_id
 

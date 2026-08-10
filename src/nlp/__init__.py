@@ -1,10 +1,10 @@
-from .aspect_sentiment import analyze_review, analyze_aspects
-from .entity_extraction import extract_entities, extract_brands, extract_skus
+from .aspect_sentiment import analyze_aspects, analyze_review
+from .entity_extraction import extract_brands, extract_entities, extract_skus
 
 __all__ = [
-    "analyze_review",
     "analyze_aspects",
-    "extract_entities",
+    "analyze_review",
     "extract_brands",
+    "extract_entities",
     "extract_skus",
 ]

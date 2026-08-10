@@ -11,7 +11,6 @@ than a general-purpose entity model.
 """
 
 import re
-from typing import List
 
 from transformers import pipeline
 
@@ -33,7 +32,7 @@ def _get_ner_pipeline():
     return _ner_pipeline
 
 
-def extract_brands(text: str) -> List[str]:
+def extract_brands(text: str) -> list[str]:
     """
     Includes both ORG and MISC entity groups
     """
@@ -47,7 +46,7 @@ def extract_brands(text: str) -> List[str]:
     return sorted(brands)
 
 
-def extract_skus(text: str) -> List[str]:
+def extract_skus(text: str) -> list[str]:
     return sorted(set(SKU_PATTERN.findall(text)))
 
 

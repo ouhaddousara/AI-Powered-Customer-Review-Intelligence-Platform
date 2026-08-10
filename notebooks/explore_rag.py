@@ -1,10 +1,10 @@
 import os
-import chromadb
-from src.rag.index_builder import get_embedding_function, PERSIST_DIR, COLLECTION_NAME
-from dotenv import load_dotenv
-from src.rag.qa import answer_question, detect_sentiment_filter
-from src.rag.qa import get_collection
 
+import chromadb
+from dotenv import load_dotenv
+
+from src.rag.index_builder import COLLECTION_NAME, PERSIST_DIR, get_embedding_function
+from src.rag.qa import answer_question, detect_sentiment_filter, get_collection
 
 client = chromadb.PersistentClient(path=PERSIST_DIR)
 collection = client.get_collection(

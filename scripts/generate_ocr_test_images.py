@@ -16,12 +16,11 @@ Usage:
 
 import json
 import random
+import textwrap
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import numpy as np
-
-import textwrap
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 INPUT_PATH = Path("data/raw/amazon_reviews_sample.jsonl")
 OUTPUT_DIR = Path("data/raw/ocr_test_images")

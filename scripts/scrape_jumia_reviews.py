@@ -16,7 +16,11 @@ import re
 import time
 from pathlib import Path
 
-from src.ingestion.jumia_scraper import make_driver, fetch_reviews_page_html, parse_reviews
+from src.ingestion.jumia_scraper import (
+    fetch_reviews_page_html,
+    make_driver,
+    parse_reviews,
+)
 
 PRODUCTS_PATH = Path("data/raw/jumia_products.jsonl")
 OUTPUT_PATH = Path("data/raw/jumia_reviews.jsonl")
@@ -75,8 +79,7 @@ def main() -> None:
                 html = fetch_reviews_page_html(full_reviews_url, driver)
                 reviews = list(parse_reviews(html, product_id))
 
-                for review in reviews:
-                    out_file.write(json.dumps(review.to_dict(), ensure_ascii=False) + "\n")
+                out_file.writelines(json.dumps(review.to_dict(), ensure_ascii=False) + "\n" for review in reviews)
 
                 print(f"  -> {len(reviews)} reviews")
                 total_reviews += len(reviews)
