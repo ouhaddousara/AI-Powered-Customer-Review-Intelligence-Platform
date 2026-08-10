@@ -115,6 +115,7 @@ the next — no layer was left partially finished while building on top of it.
 ![LLM Benchmark](docs/screenshots/llm_benchmark.png)
 
 **Final evaluation — precision, latency, faithfulness:**
+
 ![Final Evaluation](docs/screenshots/final_evaluation.png)
 
 ---
