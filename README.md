@@ -7,7 +7,7 @@
 ![Vector Store](https://img.shields.io/badge/vector%20store-ChromaDB-blueviolet)
 ![OCR](https://img.shields.io/badge/OCR-Tesseract-2ea44f)
 ![Interface](https://img.shields.io/badge/UI-Gradio-ff7c00)
-![License](https://img.shields.io/badge/license-MIT-green)
+![Tests](https://img.shields.io/badge/tests-9%20passing-2ea44f)
 
 An end-to-end NLP + RAG pipeline that transforms raw, unstructured e-commerce
 reviews — scraped, exported, scanned, or photographed — into a conversational
@@ -21,18 +21,19 @@ assumed.
 
 ## Table of Contents
 
-- [Problem Statement](#-problem-statement)
-- [Architecture](#-architecture)
-- [Key Results](#-key-results)
-- [Screenshots](#-screenshots)
-- [Design Decisions](#-design-decisions)
-- [Project Structure](#-project-structure)
-- [Tech Stack](#-tech-stack)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Engineering Highlights](#-engineering-highlights)
-- [Limitations & Future Work](#-limitations--future-work)
-- [Detailed Reports](#-detailed-reports)
+- [Problem Statement](#problem-statement)
+- [Architecture](#architecture)
+- [Key Results](#key-results)
+- [Screenshots](#screenshots)
+- [Design Decisions](#design-decisions)
+- [Project Structure](#project-structure)
+- [Tech Stack](#tech-stack)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Testing & Observability](#testing--observability)
+- [Engineering Highlights](#engineering-highlights)
+- [Limitations & Future Work](#limitations--future-work)
+- [Detailed Reports](#detailed-reports)
 
 ---
 
@@ -47,7 +48,8 @@ keeps opening"* are the same complaint, different words).
 This platform ingests reviews from four different real-world sources,
 enriches them with aspect-level sentiment and entity extraction, and exposes
 a RAG-based chat interface that answers plain-language questions with
-citations back to the exact reviews used — never a fabricated answer.
+citations back to the exact reviews used — never a fabricated answer, and
+never an answer generated when nothing relevant exists in the corpus.
 
 ---
 
@@ -69,10 +71,12 @@ preprocessing, OCR, and NLP analysis progressively enrich each review
 entities) before indexing into a vector store. At query time, retrieval is
 **sentiment-aware** — filtered on Layer 4's metadata when a question signals
 intent (e.g. "complaints") — not just semantic similarity, so a 5★ review
-complaining about price on one aspect is still correctly surfaced. The LLM
-is then constrained to generate only from the retrieved context, never from
-its own memory, with faithfulness verified empirically via LLM-as-judge
-rather than just asserted in the prompt.
+complaining about price on one aspect is still correctly surfaced. Before
+any generation happens, a **relevance check** (average similarity distance
+across retrieved results, calibrated empirically) rejects off-topic
+questions outright. The LLM is then constrained to generate only from the
+retrieved context, never from its own memory, with faithfulness verified
+empirically via LLM-as-judge rather than just asserted in the prompt.
 
 [View the full architecture diagram](docs/system_architecture.png)
 
@@ -89,8 +93,10 @@ the next — no layer was left partially finished while building on top of it.
 | **OCR engine (of 3 benchmarked)** | Tesseract — best accuracy (0.126 normalized edit distance) *and* fastest (3.9s/15 images) |
 | **LLM (of 3 benchmarked)** | Qwen 3.6 27B via Groq — best multilingual nuance, avoids LLaMA 3.3 deprecation |
 | **Retrieval quality** | 100% of manually-verified relevant reviews found in top-5, across test set |
+| **MRR** | 0.80 average — the first relevant result is almost always in position #1 |
 | **Faithfulness (LLM-as-judge)** | 5/5 PASS — zero hallucination detected on test set |
-| **End-to-end latency** | 0.91s average (target from initial spec: <4s) |
+| **End-to-end latency** | 1.13s average (target from initial spec: <4s) |
+| **Unit tests** | 9/9 passing (`schema.py`, `cleaner.py`) |
 | **Legal compliance** | Every scraping target vetted against both `robots.txt` *and* Terms of Service before implementation |
 
 ---
@@ -106,17 +112,24 @@ the next — no layer was left partially finished while building on top of it.
 ### Pipeline validation
 
 **4-source ingestion, end to end:**
+
 ![Ingestion](docs/screenshots/ingestion_pipeline.png)
 
 **OCR engine benchmark (Tesseract vs EasyOCR vs PaddleOCR):**
+
 ![OCR Benchmark](docs/screenshots/ocr_benchmark.png)
 
 **LLM benchmark (Groq/LLaMA 3 vs Qwen vs Mistral):**
+
 ![LLM Benchmark](docs/screenshots/llm_benchmark.png)
 
-**Final evaluation — precision, latency, faithfulness:**
+**Final evaluation — precision, MRR, latency, faithfulness:**
 
 ![Final Evaluation](docs/screenshots/final_evaluation.png)
+
+**Unit test suite:**
+
+![Unit tests](docs/screenshots/pytest_results.png)
 
 ---
 
@@ -154,10 +167,21 @@ Layer 4's per-aspect sentiment metadata when the question signals intent
 aspect is still surfaced correctly, something a naive `rating < 3` filter
 would miss entirely.
 
+**Relevance is checked on an unfiltered search, deliberately decoupled from
+the sentiment filter.** An early version checked relevance on the *same*
+sentiment-filtered query used for retrieval — this silently rejected
+perfectly relevant questions whenever the filtered subset had a higher
+average distance than the full corpus. Relevance ("does this topic exist in
+the corpus at all?") and sentiment filtering ("which of the relevant results
+match this tone?") are two different questions and now run as two separate
+checks.
+
 **The LLM never answers from memory.** The system prompt constrains
 generation strictly to the retrieved reviews, with explicit instructions to
 say "not enough information" rather than infer. Verified empirically via
-LLM-as-judge, not just asserted in the prompt.
+LLM-as-judge, not just asserted in the prompt. A relevance threshold
+(average similarity distance, calibrated on real queries — not guessed)
+rejects off-topic questions *before* the LLM is even called.
 
 ---
 
@@ -179,17 +203,19 @@ review-intel-platform/
 ├── app/
 │   └── gradio_app.py        # Chat interface — answer + cited source cards
 ├── evaluation/
-│   └── metrics.py            # Precision@5, latency, LLM-as-judge faithfulness
+│   └── metrics.py            # Precision@5, MRR, latency, LLM-as-judge faithfulness
+├── tests/                     # Unit tests (pytest) — schema.py, cleaner.py
 ├── scripts/                   # One-shot data/benchmark scripts (never imported)
 ├── notebooks/                 # Per-layer validation scripts against real data
 ├── docs/
-│   ├── architecture.svg
+│   ├── system_architecture.png
 │   ├── ocr_benchmark.md
 │   ├── llm_benchmark.md
 │   ├── final_evaluation.md
 │   ├── technical_challenges.md
 │   └── screenshots/
 ├── data/raw/                   # Git-ignored — local sample/test data
+├── .env.example                # Documents expected env vars, no real secrets
 └── requirements.txt
 ```
 
@@ -208,7 +234,8 @@ review-intel-platform/
 | Vector store | ChromaDB | Persistent, metadata-filterable — enables sentiment-aware retrieval |
 | LLM | Groq API (Qwen 3.6 27B) | Selected via 3-way benchmark; free, fast, avoids LLaMA 3.3 deprecation |
 | Interface | Gradio | Rapid, styleable chat UI with custom CSS/animation |
-| Evaluation | LLM-as-judge, custom metrics | Automated faithfulness checking at scale |
+| Evaluation | LLM-as-judge, custom metrics | Automated faithfulness, precision, and MRR checking at scale |
+| Testing | pytest | Unit coverage on core data contracts and text-cleaning logic |
 
 ---
 
@@ -220,7 +247,10 @@ cd review-intel-platform
 pip install -r requirements.txt
 ```
 
-Create a `.env` file:
+Copy `.env.example` to `.env` and fill in your keys:
+```bash
+cp .env.example .env
+```
 ```
 GROQ_API_KEY=your_key_here
 MISTRAL_API_KEY=your_key_here
@@ -248,6 +278,30 @@ result = answer_question(
 print(result["answer"])
 for source in result["sources"]:
     print(f"[{source['product_id']}, {source['rating']}★] {source['text_raw'][:80]}")
+```
+
+---
+
+## Testing & Observability
+
+```bash
+pytest tests/ -v
+```
+9 unit tests covering deterministic ID generation, date serialization, HTML/whitespace
+cleaning, and language-detection thresholds.
+
+```bash
+python evaluation/metrics.py
+```
+Runs the full evaluation suite (Precision@5, MRR, latency, LLM-as-judge faithfulness)
+against the hand-annotated test set.
+
+Every call to `answer_question()` emits a structured log line — question, model,
+number of reviews retrieved, and elapsed time — a first step toward the
+request-level observability a production deployment would need:
+```
+query='What do customers complain about most?' result=success
+model=qwen/qwen3.6-27b reviews_retrieved=5 elapsed=1.39s
 ```
 
 ---
@@ -284,6 +338,13 @@ because the resolution process matters as much as the result:
 - **Reasoning-model leak caught and fixed** — Qwen 3.6, a reasoning model,
   leaked its internal `<think>` trace into production answers by default;
   fixed via `reasoning_effort="none"`, which also cut latency ~3×.
+- **Relevance-threshold calibration and a coupling bug** — the first
+  approach (min-distance threshold) was tested and rejected on evidence: a
+  clearly off-topic question could still produce one spuriously close match.
+  Switched to average distance across top-k, calibrated on real queries.
+  Once implemented, a second bug surfaced empirically: relevance checked on
+  a *sentiment-filtered* query rejected genuinely relevant questions.
+  Fixed by decoupling the relevance check from the sentiment filter entirely.
 
 Full write-up: [`docs/technical_challenges.md`](docs/technical_challenges.md)
 
@@ -305,6 +366,9 @@ Full write-up: [`docs/technical_challenges.md`](docs/technical_challenges.md)
   conclusions; a next step would be expanding to 30–50 questions.
 - **No conversation memory** — each question is answered independently;
   multi-turn follow-up questions aren't yet supported.
+- **Logging is local/console-only** — a real deployment would ship these
+  structured log lines to a proper observability stack (latency percentiles,
+  error rates, cost per request) rather than stdout.
 
 ---
 
