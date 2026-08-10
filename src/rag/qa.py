@@ -15,13 +15,15 @@ signals in the question ("complaints", "love") and filters the search
 to reviews where Layer 4's aspect sentiment matches, using metadata
 already stored at indexing time.
 
-Relevance threshold: is_relevant() checks the AVERAGE distance across
-all top_k results, not just the closest one. Calibrated empirically
-(see docs/technical_challenges.md) — an off-topic question can still
-produce one spuriously close match (e.g. a stray shared word), which
-would fool a min-distance check but not an average-based one. Below
-this threshold, the LLM is never called — avoids generating an answer
-from irrelevant context.
+Relevance threshold: check_relevance() ALWAYS runs on an UNFILTERED
+similarity search, deliberately decoupled from the sentiment filter.
+Checking relevance on a filtered query would compare against a
+different, smaller candidate pool than the one used to calibrate the
+threshold — a genuinely relevant question could get rejected simply
+because its sentiment-filtered subset happens to have higher average
+distance than the full corpus. Relevance asks "does the corpus cover
+this topic at all"; the sentiment filter only narrows WHICH already-
+relevant results to show. Two different questions, two separate checks.
 
 Model choice: Qwen 3.6 27B (via Groq), switched from LLaMA 3.3 70B
 after benchmarking (see docs/llm_benchmark.md) — better handling of
@@ -94,8 +96,6 @@ def retrieve_reviews(question: str, top_k: int = TOP_K) -> dict:
 
     where_clause = None
     if sentiment_filter:
-        # Match if ANY of the 4 aspects has this sentiment — a general
-        # question doesn't target one aspect specifically.
         where_clause = {
             "$or": [
                 {f"aspect_{aspect}": sentiment_filter}
@@ -124,6 +124,17 @@ def is_relevant(results: dict, threshold: float = DISTANCE_THRESHOLD) -> bool:
     return avg_distance <= threshold
 
 
+def check_relevance(question: str, top_k: int = TOP_K) -> bool:
+    """
+    Relevance is ALWAYS checked against an unfiltered similarity
+    search — see module docstring for why this must stay decoupled
+    from detect_sentiment_filter()/retrieve_reviews()'s where clause.
+    """
+    collection = get_collection()
+    unfiltered_results = collection.query(query_texts=[question], n_results=top_k)
+    return is_relevant(unfiltered_results)
+
+
 def build_context(results: dict) -> str:
     documents = results["documents"][0]
     metadatas = results["metadatas"][0]
@@ -139,12 +150,19 @@ def build_context(results: dict) -> str:
 def answer_question(question: str, groq_api_key: str, top_k: int = TOP_K) -> dict:
     """
     Returns {"answer": str, "sources": list of {product_id, rating, text_raw}}.
-    Returns NO_RESULTS_MESSAGE with empty sources if no retrieved
-    review is close enough to be considered relevant.
+    Returns NO_RESULTS_MESSAGE with empty sources if the corpus has
+    nothing relevant to the question (checked before any sentiment
+    filtering is applied).
     """
+    if not check_relevance(question, top_k):
+        return {"answer": NO_RESULTS_MESSAGE, "sources": []}
+
     results = retrieve_reviews(question, top_k)
 
-    if not is_relevant(results):
+    # Edge case: relevant overall, but the sentiment filter narrowed
+    # to zero matches (e.g. asking for complaints on a topic where no
+    # review has been tagged negative on any aspect).
+    if not results["documents"][0]:
         return {"answer": NO_RESULTS_MESSAGE, "sources": []}
 
     context = build_context(results)
