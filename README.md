@@ -7,9 +7,9 @@
 ![Vector Store](https://img.shields.io/badge/vector%20store-ChromaDB-blueviolet)
 ![OCR](https://img.shields.io/badge/OCR-Tesseract-2ea44f)
 ![Interface](https://img.shields.io/badge/UI-Gradio-ff7c00)
-![Tests](https://github.com/ouhaddousara/review-intel-platform/actions/workflows/tests.yml/badge.svg)
-![Last Commit](https://img.shields.io/github/last-commit/ouhaddousara/review-intel-platform)
-![Code Size](https://img.shields.io/github/languages/code-size/ouhaddousara/review-intel-platform)
+![Tests](https://github.com/ouhaddousara/AI-Powered-Customer-Review-Intelligence-Platform/actions/workflows/ci.yml/badge.svg)
+![Last Commit](https://img.shields.io/github/last-commit/ouhaddousara/AI-Powered-Customer-Review-Intelligence-Platform)
+![Code Size](https://img.shields.io/github/languages/code-size/ouhaddousara/AI-Powered-Customer-Review-Intelligence-Platform)
 
 An end-to-end NLP + RAG pipeline that transforms raw, unstructured e-commerce
 reviews — scraped, exported, scanned, or photographed — into a conversational
@@ -244,7 +244,7 @@ review-intel-platform/
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/review-intel-platform.git
+git clone https://github.com/<your-username>/AI-Powered-Customer-Review-Intelligence-Platform.git
 cd review-intel-platform
 pip install -r requirements.txt
 ```
