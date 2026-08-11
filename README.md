@@ -97,16 +97,17 @@ the next — no layer was left partially finished while building on top of it.
 
 ## Key Results
 
+
 | Metric | Result |
 |---|---|
 | **Ingestion sources** | 4 real sources — JSON (5,000), CSV (199), web-scraped (40), PDF (30) |
 | **OCR engine (of 3 benchmarked)** | Tesseract — best accuracy (0.126 normalized edit distance) *and* fastest (3.9s/15 images) |
 | **LLM (of 3 benchmarked)** | Qwen 3.6 27B via Groq — best multilingual nuance, avoids LLaMA 3.3 deprecation |
-| **Retrieval quality** | 100% of manually-verified relevant reviews found in top-5, across test set |
-| **MRR** | 0.80 average — the first relevant result is almost always in position #1 |
-| **Faithfulness (LLM-as-judge)** | 5/5 PASS — zero hallucination detected on test set |
-| **End-to-end latency** | 1.13s average (target from initial spec: <4s) |
-| **Unit tests** | 9/9 passing (`schema.py`, `cleaner.py`) |
+| **Evaluation set** | 30 hand-annotated questions across 8 categories (sentiment, aspect, general, comparison, temporal, multilingual, no-answer, edge cases) |
+| **Retrieval quality** | Avg Precision@5 0.55, Avg MRR 0.80 across answerable categories |
+| **Faithfulness (LLM-as-judge)** | 90%+ PASS across categories — near-zero hallucination on grounded questions |
+| **No-answer accuracy** | 20% — a known limitation on short, generic off-topic questions (see Limitations) |
+| **Unit tests** | 16/16 passing (`schema.py`, `cleaner.py`, `qa.py` retrieval behavior) |
 | **Legal compliance** | Every scraping target vetted against both `robots.txt` *and* Terms of Service before implementation |
 
 ---
@@ -297,22 +298,23 @@ for source in result["sources"]:
 ```bash
 pytest tests/ -v
 ```
-9 unit tests covering deterministic ID generation, date serialization, HTML/whitespace
-cleaning, and language-detection thresholds.
+16 unit tests covering deterministic ID generation, date serialization, HTML/whitespace
+cleaning, language-detection thresholds, and RAG retrieval behavior (relevance checking,
+sentiment-filter detection, and a regression test for the filter-coupling bug described
+below).
+
+```bash
+python evaluation/annotate.py
+```
+Interactive annotation tool — runs real retrieval against ChromaDB and asks for
+relevance confirmation per candidate, rather than guessing ground-truth IDs blind.
 
 ```bash
 python evaluation/metrics.py
 ```
-Runs the full evaluation suite (Precision@5, MRR, latency, LLM-as-judge faithfulness)
-against the hand-annotated test set.
-
-Every call to `answer_question()` emits a structured log line — question, model,
-number of reviews retrieved, and elapsed time — a first step toward the
-request-level observability a production deployment would need:
-```
-query='What do customers complain about most?' result=success
-model=qwen/qwen3.6-27b reviews_retrieved=5 elapsed=1.39s
-```
+Runs the full evaluation suite against `evaluation/dataset/rag_evaluation.json` — 30
+questions across 8 categories, reporting Precision@5, MRR, faithfulness, answer
+relevance, and no-answer accuracy per category.
 
 ---
 
@@ -399,22 +401,22 @@ Full write-up: [`docs/technical_challenges.md`](docs/technical_challenges.md)
 - **Aspect detection is keyword-based** — simple and interpretable, but
   would benefit from a trained classifier for edge cases outside the fixed
   keyword list.
-- **Evaluation test set is small** (5 hand-annotated questions) — sufficient
-  to validate the measurement harness, not to draw statistically strong
-  conclusions; a next step would be expanding to 30–50 questions.
+- **No-answer detection is unreliable on short, generic off-topic
+  questions** — the relevance threshold (average embedding distance)
+  correctly rejects clearly unrelated questions (e.g. "What is the
+  capital of France?", distance 0.71) but not short generic ones —
+  "Can you recommend a good restaurant nearby?" scored *closer*
+  (0.61) than genuinely relevant questions (0.66–0.67). This isn't a
+  miscalibrated threshold; the two distributions genuinely overlap on
+  short generic phrasing. Measured no-answer accuracy: 20% on a
+  5-question test set. A more robust fix (dedicated classifier, or an
+  LLM-based pre-check) is a natural next step. See
+  [`docs/technical_challenges.md`](docs/technical_challenges.md).
 - **No conversation memory** — each question is answered independently;
   multi-turn follow-up questions aren't yet supported.
 - **Logging is local/console-only** — a real deployment would ship these
   structured log lines to a proper observability stack (latency percentiles,
   error rates, cost per request) rather than stdout.
-- **No-answer detection is unreliable on short, generic off-topic
-  questions** — the relevance threshold (average embedding distance)
-  correctly rejects clearly unrelated questions but not short generic
-  ones (e.g. "recommend a restaurant" scored *closer* than genuinely
-  relevant questions). Measured no-answer accuracy: 20% on a 5-question
-  test set. A more robust solution (dedicated classifier, LLM-based
-  pre-check) is a natural next step. See
-  [`docs/technical_challenges.md`](docs/technical_challenges.md).
 
 ---
 
