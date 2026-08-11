@@ -407,6 +407,14 @@ Full write-up: [`docs/technical_challenges.md`](docs/technical_challenges.md)
 - **Logging is local/console-only** — a real deployment would ship these
   structured log lines to a proper observability stack (latency percentiles,
   error rates, cost per request) rather than stdout.
+- **No-answer detection is unreliable on short, generic off-topic
+  questions** — the relevance threshold (average embedding distance)
+  correctly rejects clearly unrelated questions but not short generic
+  ones (e.g. "recommend a restaurant" scored *closer* than genuinely
+  relevant questions). Measured no-answer accuracy: 20% on a 5-question
+  test set. A more robust solution (dedicated classifier, LLM-based
+  pre-check) is a natural next step. See
+  [`docs/technical_challenges.md`](docs/technical_challenges.md).
 
 ---
 

@@ -91,3 +91,32 @@ peuvent interagir silencieusement si elles partagent le même chemin de
 code sans qu'on y pense explicitement — d'où l'importance de tester
 chaque ajout contre des cas concrets (question pertinente ET hors-sujet)
 avant de le considérer terminé.
+
+### Limite du seuil de pertinence sur les questions génériques courtes
+
+L'évaluation élargie (30 questions, dont 5 hors-sujet dédiées) a révélé
+que le seuil de distance moyenne (0.69) ne sépare pas fiablement les
+questions pertinentes des questions hors-sujet **courtes et génériques**.
+Exemple mesuré : "Can you recommend a good restaurant nearby?" obtient
+une distance moyenne de 0.608 — plus proche que n'importe quelle vraie
+question pertinente sur les reviews (plage 0.655–0.668) — alors que
+c'est une question complètement hors sujet.
+
+**Cause** : le modèle d'embedding capture la structure générale d'une
+question courte autant que son sujet réel ; deux questions brèves et
+simplement formulées peuvent se ressembler statistiquement sans lien
+de sens véritable. Ce n'est pas un problème de calibration du seuil —
+les distributions de distance des deux catégories se chevauchent
+réellement sur ce type de question.
+
+**Résultat mesuré** : no-answer accuracy de 20% (1/5) sur le jeu de
+test dédié — le seuil filtre correctement les questions très éloignées
+(ex. capitale de la France, distance 0.712) mais pas les questions
+courtes et génériques.
+
+**Décision** : le seuil reste en l'état — il reste utile pour les cas
+clairement hors-sujet, et l'alternative (un seuil plus strict) risquerait
+de rejeter à tort de vraies questions pertinentes courtes. Une solution
+plus fiable existerait (ex. un classifieur dédié, ou une vérification
+LLM légère avant retrieval) mais dépasse le périmètre de ce projet —
+notée comme piste d'amélioration future.
