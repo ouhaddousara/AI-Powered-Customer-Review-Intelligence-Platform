@@ -1,31 +1,40 @@
 """
 Layer 8 — Final evaluation of the RAG pipeline.
 
-Three metrics, each measuring something distinct from the benchmarks
-done earlier (which compared tools; this measures the system built
-with the chosen tools):
+Loads TEST_SET from evaluation/dataset/rag_evaluation.json (30
+hand-annotated questions across 8 categories) rather than a hardcoded
+list — see evaluation/annotate.py for how relevant_reviews were
+verified against real retrieval output.
 
-1. Precision@k — NOT recall (true recall would require knowing every
-   relevant review in the 5000+ corpus, infeasible to hand-annotate).
-   Measures, of the k retrieved reviews, how many are genuinely
-   relevant, checked against a small hand-verified test set.
-2. MRR (Mean Reciprocal Rank) — complements Precision@k: measures how
-   quickly the FIRST relevant result appears (1.0 if it's #1, 0.5 if
-   #2, etc.), rather than overall relevant density across all k.
-3. Faithfulness — LLM-as-judge: a second model call checks whether
-   every claim in the answer is actually supported by the retrieved
-   context, catching hallucination that a human skim might miss.
-4. End-to-end latency — question in, answer out, real wall-clock time.
+Metrics:
+1. Precision@k / MRR — retrieval quality (see docstrings below).
+2. Faithfulness — LLM-as-judge: does the answer stick to the context?
+3. Answer relevance — LLM-as-judge: does the answer actually address
+   the question (distinct from faithfulness — an answer can be 100%
+   grounded in the context and still miss the point of the question).
+4. No-answer accuracy — for questions marked expects_answer=False,
+   does the system correctly refuse rather than hallucinate?
+5. End-to-end latency.
 """
 
+import json
 import time
-from dataclasses import dataclass, field
+from collections import defaultdict
+from pathlib import Path
 
 from groq import Groq
 
-from src.rag.qa import LLM_MODEL, answer_question, retrieve_reviews
+from src.rag.qa import (
+    LLM_MODEL,
+    NO_RESULTS_MESSAGE,
+    answer_question,
+    build_context,
+    retrieve_reviews,
+)
 
-JUDGE_SYSTEM_PROMPT = """You are a strict fact-checker. You will be given \
+DATASET_PATH = Path("evaluation/dataset/rag_evaluation.json")
+
+FAITHFULNESS_JUDGE_PROMPT = """You are a strict fact-checker. You will be given \
 a CONTEXT (customer reviews) and an ANSWER generated from that context. \
 
 Your job: determine if EVERY factual claim in the ANSWER is directly \
@@ -38,39 +47,20 @@ REASON: <one sentence>
 FAIL if the answer states anything not present in the context, even a \
 small embellishment. PASS only if every claim traces back to the context."""
 
+RELEVANCE_JUDGE_PROMPT = """You are a strict evaluator. You will be given a \
+QUESTION and an ANSWER. Your job: determine if the ANSWER actually addresses \
+what the QUESTION asked — not whether it's factually correct, just whether \
+it's on-topic and responsive.
 
-@dataclass
-class TestCase:
-    question: str
-    # Product IDs manually verified as genuinely relevant to the question —
-    # a hand-checked subset, not an exhaustive corpus-wide ground truth.
-    relevant_product_ids: list[str] = field(default_factory=list)
+Respond with exactly one line in this format:
+VERDICT: PASS or FAIL
+REASON: <one sentence>
+
+FAIL if the answer dodges, misunderstands, or ignores the question's intent."""
 
 
-# Hand-verified against real retrieval output seen during development —
-# each product_id below was manually confirmed relevant to its question.
-TEST_SET = [
-    TestCase(
-        question="What do customers complain about most?",
-        relevant_product_ids=["B0749FJSN2", "B0929H24R1", "B073WQHFXB", "B0008F6QGO"],
-    ),
-    TestCase(
-        question="Are there any mentions of product size or fit issues?",
-        relevant_product_ids=["B08BBQ29N5", "B07TK6647L"],
-    ),
-    TestCase(
-        question="What do people say about shipping and delivery?",
-        relevant_product_ids=["B0855LGCNX", "B01LW6VB7M", "B077R9DW9L", "B082D4T8PM", "B07DWMKCFD"],
-    ),
-    TestCase(
-        question="Which products get the most praise for value for money?",
-        relevant_product_ids=["B08RNQNFW1", "B0133YZ22U"],
-    ),
-    TestCase(
-        question="What do customers love about these products?",
-        relevant_product_ids=["B08393CSHT", "B008S59834", "B01BZVADRW"],
-    ),
-]
+def load_dataset() -> list[dict]:
+    return json.loads(DATASET_PATH.read_text(encoding="utf-8"))
 
 
 def precision_at_k(question: str, relevant_ids: list[str], top_k: int = 5) -> float:
@@ -83,13 +73,6 @@ def precision_at_k(question: str, relevant_ids: list[str], top_k: int = 5) -> fl
 
 
 def mrr(question: str, relevant_ids: list[str], top_k: int = 5) -> float:
-    """
-    Mean Reciprocal Rank for a single question: 1/rank of the first
-    relevant result (1.0 if it's the top result, 0.5 if second, etc.),
-    0.0 if none of the top_k results are relevant. Complements
-    Precision@k — precision measures overall relevant density,
-    MRR measures how quickly the FIRST useful result appears.
-    """
     results = retrieve_reviews(question, top_k=top_k)
     retrieved_ids = [meta["product_id"] for meta in results["metadatas"][0]]
     for rank, pid in enumerate(retrieved_ids, start=1):
@@ -98,68 +81,92 @@ def mrr(question: str, relevant_ids: list[str], top_k: int = 5) -> float:
     return 0.0
 
 
-def judge_faithfulness(context: str, answer: str, groq_api_key: str) -> dict:
-    """
-    Uses the same model family (Qwen via Groq) as a judge, in a
-    separate call with no access to the original question — only
-    context + answer — so it evaluates grounding, not plausibility.
-    """
+def _judge(prompt_body: str, system_prompt: str, groq_api_key: str) -> bool:
     client = Groq(api_key=groq_api_key)
     completion = client.chat.completions.create(
         model=LLM_MODEL,
         messages=[
-            {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-            {"role": "user", "content": f"CONTEXT:\n{context}\n\nANSWER:\n{answer}"},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt_body},
         ],
         temperature=0.0,
         reasoning_effort="none",
     )
-    verdict_text = completion.choices[0].message.content.strip()
-    passed = "VERDICT: PASS" in verdict_text
-    return {"passed": passed, "raw": verdict_text}
+    return "VERDICT: PASS" in completion.choices[0].message.content
+
+
+def judge_faithfulness(context: str, answer: str, groq_api_key: str) -> bool:
+    return _judge(f"CONTEXT:\n{context}\n\nANSWER:\n{answer}", FAITHFULNESS_JUDGE_PROMPT, groq_api_key)
+
+
+def judge_answer_relevance(question: str, answer: str, groq_api_key: str) -> bool:
+    return _judge(f"QUESTION:\n{question}\n\nANSWER:\n{answer}", RELEVANCE_JUDGE_PROMPT, groq_api_key)
 
 
 def run_evaluation(groq_api_key: str) -> None:
-    from src.rag.qa import build_context
+    dataset = load_dataset()
+    unannotated = [c for c in dataset if c["relevant_reviews"] is None]
+    if unannotated:
+        print(
+            f"WARNING: {len(unannotated)} questions not yet annotated — "
+            f"run `python evaluation/annotate.py` first. Skipping them."
+        )
+        dataset = [c for c in dataset if c["relevant_reviews"] is not None]
 
-    precisions, mrr_scores, latencies, faithfulness_results = [], [], [], []
+    by_category = defaultdict(list)
 
-    for case in TEST_SET:
-        print(f"\n=== {case.question} ===")
+    for case in dataset:
+        question = case["question"]
+        expects_answer = case["expects_answer"]
+        print(f"\n=== [{case['category']}] {question} ===")
 
-        # Precision@k
-        p = precision_at_k(case.question, case.relevant_product_ids)
-        precisions.append(p)
-        print(f"  Precision@5: {p:.2f}")
-
-        # MRR
-        m = mrr(case.question, case.relevant_product_ids)
-        mrr_scores.append(m)
-        print(f"  MRR: {m:.2f}")
-
-        # Latency + faithfulness (needs the actual answer + context)
         start = time.time()
-        results = retrieve_reviews(case.question)
-        context = build_context(results)
-        result = answer_question(case.question, groq_api_key)
+        result = answer_question(question, groq_api_key)
         elapsed = time.time() - start
-        latencies.append(elapsed)
-        print(f"  Latency: {elapsed:.2f}s")
 
-        judgment = judge_faithfulness(context, result["answer"], groq_api_key)
-        faithfulness_results.append(judgment["passed"])
-        print(f"  Faithfulness: {'PASS' if judgment['passed'] else 'FAIL'} — {judgment['raw']}")
+        if not expects_answer:
+            no_answer_correct = result["answer"] == NO_RESULTS_MESSAGE
+            print(f"  No-answer check: {'PASS' if no_answer_correct else 'FAIL'}")
+            by_category[case["category"]].append({"no_answer_correct": no_answer_correct, "latency": elapsed})
+            continue
 
-    print("\n=== Summary ===")
-    print(f"Avg Precision@5: {sum(precisions) / len(precisions):.2f}")
-    print(f"Avg MRR: {sum(mrr_scores) / len(mrr_scores):.2f}")
-    print(f"Avg Latency: {sum(latencies) / len(latencies):.2f}s")
-    print(f"Faithfulness pass rate: {sum(faithfulness_results)}/{len(faithfulness_results)}")
+        p = precision_at_k(question, case["relevant_reviews"])
+        m = mrr(question, case["relevant_reviews"])
+        print(f"  Precision@5: {p:.2f}  MRR: {m:.2f}  Latency: {elapsed:.2f}s")
+
+        results = retrieve_reviews(question)
+        context = build_context(results)
+        faithful = judge_faithfulness(context, result["answer"], groq_api_key)
+        relevant = judge_answer_relevance(question, result["answer"], groq_api_key)
+        print(f"  Faithfulness: {'PASS' if faithful else 'FAIL'}  Answer relevance: {'PASS' if relevant else 'FAIL'}")
+
+        by_category[case["category"]].append({
+            "precision": p, "mrr": m, "latency": elapsed,
+            "faithful": faithful, "relevant": relevant,
+        })
+
+    print("\n\n=== Summary by category ===")
+    for category, entries in by_category.items():
+        print(f"\n{category} ({len(entries)} questions)")
+
+        scored = [e for e in entries if "precision" in e]
+        no_answer_entries = [e for e in entries if "no_answer_correct" in e]
+
+        if scored:
+            avg_p = sum(e["precision"] for e in scored) / len(scored)
+            avg_m = sum(e["mrr"] for e in scored) / len(scored)
+            faith_rate = sum(e["faithful"] for e in scored) / len(scored)
+            rel_rate = sum(e["relevant"] for e in scored) / len(scored)
+            print(f"  Avg Precision@5: {avg_p:.2f}  Avg MRR: {avg_m:.2f}")
+            print(f"  Faithfulness: {faith_rate:.0%}  Answer relevance: {rel_rate:.0%}")
+
+        if no_answer_entries:
+            accuracy = sum(e["no_answer_correct"] for e in no_answer_entries) / len(no_answer_entries)
+            print(f"  No-answer accuracy: {accuracy:.2f} ({len(no_answer_entries)} questions)")
 
 
 if __name__ == "__main__":
     import os
-
     from dotenv import load_dotenv
 
     load_dotenv()

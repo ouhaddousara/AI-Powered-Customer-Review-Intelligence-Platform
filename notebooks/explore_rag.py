@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from src.rag.index_builder import COLLECTION_NAME, PERSIST_DIR, get_embedding_function
 from src.rag.qa import answer_question, detect_sentiment_filter, get_collection
+from src.rag.qa import retrieve_reviews
 
 client = chromadb.PersistentClient(path=PERSIST_DIR)
 collection = client.get_collection(
@@ -51,3 +52,17 @@ print("Pertinente :", relevant["distances"][0])
 # Question clairement hors-sujet
 irrelevant = collection.query(query_texts=["What is the capital of France?"], n_results=5)
 print("Hors-sujet :", irrelevant["distances"][0])
+
+
+failing_questions = [
+    "What's the weather like today?",
+    "Who won the last football World Cup?",
+    "What is the best programming language?",
+    "Can you recommend a good restaurant nearby?",
+]
+
+for q in failing_questions:
+    results = collection.query(query_texts=[q], n_results=5)  # no filter, matches check_relevance
+    distances = results["distances"][0]
+    avg = sum(distances) / len(distances)
+    print(f"{q}\n  avg_distance={avg:.3f}")
