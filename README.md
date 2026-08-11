@@ -198,8 +198,13 @@ rejects off-topic questions *before* the LLM is even called.
 
 ## Project Structure
 
+## Project Structure
+
 ```
 review-intel-platform/
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # Lint (ruff) + tests in parallel → Docker build validation
 ├── src/
 │   ├── ingestion/          # Layer 1 — JSON, CSV, Jumia scraper, PDF loaders
 │   │   ├── schema.py         # Shared Review contract + deterministic ID hashing
@@ -214,8 +219,14 @@ review-intel-platform/
 ├── app/
 │   └── gradio_app.py        # Chat interface — answer + cited source cards
 ├── evaluation/
-│   └── metrics.py            # Precision@5, MRR, latency, LLM-as-judge faithfulness
-├── tests/                     # Unit tests (pytest) — schema.py, cleaner.py
+│   ├── dataset/
+│   │   └── rag_evaluation.json  # 30 hand-annotated questions, 8 categories
+│   ├── annotate.py            # Interactive tool: confirms relevance against real retrieval
+│   └── metrics.py              # Precision@5, MRR, faithfulness, answer relevance, no-answer accuracy
+├── tests/                     # Unit tests (pytest) — 16 tests
+│   ├── test_schema.py
+│   ├── test_cleaner.py
+│   └── test_rag.py             # Retrieval/relevance behavior, no LLM calls (CI-safe)
 ├── scripts/                   # One-shot data/benchmark scripts (never imported)
 ├── notebooks/                 # Per-layer validation scripts against real data
 ├── docs/
@@ -226,8 +237,12 @@ review-intel-platform/
 │   ├── technical_challenges.md
 │   └── screenshots/
 ├── data/raw/                   # Git-ignored — local sample/test data
-├── .env.example                # Documents expected env vars, no real secrets
-└── requirements.txt
+├── Dockerfile                   # Validated in CI (build-only, never pushed/deployed)
+├── .dockerignore
+├── ruff.toml                    # Documents intentionally-ignored lint rules
+├── .env.example                 # Documents expected env vars, no real secrets
+├── requirements.txt
+└── requirements-dev.txt         # pytest, ruff — dev-only, not needed at runtime
 ```
 
 ---
