@@ -26,6 +26,10 @@ assumed.
 
 > Personal AI Engineering project · learning-by-doing approach
 
+<div align="center">
+<img src="docs/architecture_infographic.png" alt="RAG Pipeline Architecture — From Data to Trusted Answers" width="900"/>
+</div>
+
 ---
 
 ## Table of Contents
