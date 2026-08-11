@@ -167,6 +167,7 @@ def run_evaluation(groq_api_key: str) -> None:
 
 if __name__ == "__main__":
     import os
+
     from dotenv import load_dotenv
 
     load_dotenv()

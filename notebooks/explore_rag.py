@@ -4,8 +4,11 @@ import chromadb
 from dotenv import load_dotenv
 
 from src.rag.index_builder import COLLECTION_NAME, PERSIST_DIR, get_embedding_function
-from src.rag.qa import answer_question, detect_sentiment_filter, get_collection
-from src.rag.qa import retrieve_reviews
+from src.rag.qa import (
+    answer_question,
+    detect_sentiment_filter,
+    get_collection,
+)
 
 client = chromadb.PersistentClient(path=PERSIST_DIR)
 collection = client.get_collection(
