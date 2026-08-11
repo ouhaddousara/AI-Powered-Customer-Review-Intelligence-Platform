@@ -320,10 +320,24 @@ model=qwen/qwen3.6-27b reviews_retrieved=5 elapsed=1.39s
 
 Every push and pull request to `main` triggers a GitHub Actions pipeline:
 
-Lint (ruff) → Unit tests (pytest) → Docker build validation
+```text
+Push / Pull Request
+        │
+   ┌────┴────┐
+   ↓         ↓
+ Lint      Tests
+   │         │
+   └────┬────┘
+        ↓
+ Docker Build
+```
 
+Lint and tests run **in parallel** — they're independent checks, so there's
+no reason to serialize them. Docker build only runs once both succeed,
+reflecting a clear separation of concerns: code quality, functional
+correctness, and packaging validation.
 
-The Docker image is built and validated on every push but **not pushed to a
+The image is built and validated on every push but **not pushed to a
 registry or deployed** — this project runs locally by design, keeping API
 keys out of any public-facing infrastructure. See [Limitations & Future
 Work](#limitations--future-work) for the deployment path this leaves open.
