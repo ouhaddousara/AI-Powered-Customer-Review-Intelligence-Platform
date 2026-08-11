@@ -30,12 +30,12 @@ assumed.
 
 ## Table of Contents
 
-- [Problem Statement](#problem-statement)
 - [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Problem Statement](#problem-statement)
 - [Key Results](#key-results)
 - [Screenshots](#screenshots)
 - [Design Decisions](#design-decisions)
-- [Project Structure](#project-structure)
 - [Tech Stack](#tech-stack)
 - [Installation](#installation)
 - [Usage](#usage)
@@ -44,6 +44,70 @@ assumed.
 - [Engineering Highlights](#engineering-highlights)
 - [Limitations & Future Work](#limitations--future-work)
 - [Detailed Reports](#detailed-reports)
+
+---
+
+## Architecture
+
+A 5-layer RAG pipeline — ingestion → preprocessing → OCR → NLP enrichment →
+retrieval/generation — built around a single `Review` contract that every
+source converts into before touching the rest of the pipeline, and that
+never loses the original text. Retrieval is **sentiment-aware** (filtered
+on Layer 4 metadata, not just similarity), gated by an empirically
+calibrated **relevance check** before any LLM call, and generation is
+constrained to retrieved context only — faithfulness verified via
+LLM-as-judge, not assumed.
+
+![Architecture diagram](docs/architecture.png)
+
+---
+
+## Project Structure
+
+```
+review-intel-platform/
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # Lint (ruff) + tests in parallel → Docker build validation
+├── src/
+│   ├── ingestion/          # Layer 1 — JSON, CSV, Jumia scraper, PDF loaders
+│   │   ├── schema.py         # Shared Review contract + deterministic ID hashing
+│   │   ├── json_loader.py    # Amazon Reviews 2023 (JSON Lines)
+│   │   ├── csv_loader.py     # Retailer-style CSV export
+│   │   ├── jumia_scraper.py  # Selenium (Cloudflare bypass) + Scrapy discovery
+│   │   └── pdf_loader.py     # Table extraction via pdfplumber
+│   ├── preprocessing/       # Layer 2 — technical cleaning + language detection
+│   ├── ocr/                  # Layer 3 — Tesseract-based image-to-text
+│   ├── nlp/                  # Layer 4 — aspect sentiment + brand/SKU NER
+│   └── rag/                   # Layer 5 — ChromaDB index + Q&A engine
+├── app/
+│   └── gradio_app.py        # Chat interface — answer + cited source cards
+├── evaluation/
+│   ├── dataset/
+│   │   └── rag_evaluation.json  # 30 hand-annotated questions, 8 categories
+│   ├── annotate.py            # Interactive tool: confirms relevance against real retrieval
+│   └── metrics.py              # Precision@5, MRR, faithfulness, answer relevance, no-answer accuracy
+├── tests/                     # Unit tests (pytest) — 16 tests
+│   ├── test_schema.py
+│   ├── test_cleaner.py
+│   └── test_rag.py             # Retrieval/relevance behavior, no LLM calls (CI-safe)
+├── scripts/                   # One-shot data/benchmark scripts (never imported)
+├── notebooks/                 # Per-layer validation scripts against real data
+├── docs/
+│   ├── architecture.png
+│   ├── ocr_benchmark.md
+│   ├── llm_benchmark.md
+│   ├── final_evaluation.md
+│   ├── technical_challenges.md
+│   └── screenshots/
+├── data/raw/                   # Git-ignored — local sample/test data
+├── Dockerfile                   # Validated in CI (build-only, never pushed/deployed)
+├── .dockerignore
+├── ruff.toml                    # Documents intentionally-ignored lint rules
+├── .env.example                 # Documents expected env vars, no real secrets
+├── requirements.txt
+└── requirements-dev.txt         # pytest, ruff — dev-only, not needed at runtime
+```
 
 ---
 
@@ -63,40 +127,7 @@ never an answer generated when nothing relevant exists in the corpus.
 
 ---
 
-## Architecture
-
-The system is a 5-layer RAG pipeline, followed by three delivery/validation
-stages (benchmark, interface, evaluation). Every layer transforms and
-enriches the data without ever losing traceability back to the source
-review — a principle set in `schema.py` from the very first commit
-(`text_raw` is never modified) and carried through to the final cited
-answer.
-
-Four heterogeneous ingestion sources (JSON, CSV, web scraping, PDF) all
-converge into a single `Review` contract before touching the rest of the
-pipeline — each loader only needs to know its own input format, and
-everything downstream only needs to know the shared schema. From there,
-preprocessing, OCR, and NLP analysis progressively enrich each review
-(cleaned text, extracted text from images, aspect-level sentiment, brand/SKU
-entities) before indexing into a vector store. At query time, retrieval is
-**sentiment-aware** — filtered on Layer 4's metadata when a question signals
-intent (e.g. "complaints") — not just semantic similarity, so a 5★ review
-complaining about price on one aspect is still correctly surfaced. Before
-any generation happens, a **relevance check** (average similarity distance
-across retrieved results, calibrated empirically) rejects off-topic
-questions outright. The LLM is then constrained to generate only from the
-retrieved context, never from its own memory, with faithfulness verified
-empirically via LLM-as-judge rather than just asserted in the prompt.
-
-![Architecture diagram](docs/architecture.png)
-
-Each layer was built, tested on real data, and committed before moving to
-the next — no layer was left partially finished while building on top of it.
-
----
-
 ## Key Results
-
 
 | Metric | Result |
 |---|---|
@@ -196,56 +227,6 @@ rejects off-topic questions *before* the LLM is even called.
 
 ---
 
-## Project Structure
-
-
-```
-review-intel-platform/
-├── .github/
-│   └── workflows/
-│       └── ci.yml             # Lint (ruff) + tests in parallel → Docker build validation
-├── src/
-│   ├── ingestion/          # Layer 1 — JSON, CSV, Jumia scraper, PDF loaders
-│   │   ├── schema.py         # Shared Review contract + deterministic ID hashing
-│   │   ├── json_loader.py    # Amazon Reviews 2023 (JSON Lines)
-│   │   ├── csv_loader.py     # Retailer-style CSV export
-│   │   ├── jumia_scraper.py  # Selenium (Cloudflare bypass) + Scrapy discovery
-│   │   └── pdf_loader.py     # Table extraction via pdfplumber
-│   ├── preprocessing/       # Layer 2 — technical cleaning + language detection
-│   ├── ocr/                  # Layer 3 — Tesseract-based image-to-text
-│   ├── nlp/                  # Layer 4 — aspect sentiment + brand/SKU NER
-│   └── rag/                   # Layer 5 — ChromaDB index + Q&A engine
-├── app/
-│   └── gradio_app.py        # Chat interface — answer + cited source cards
-├── evaluation/
-│   ├── dataset/
-│   │   └── rag_evaluation.json  # 30 hand-annotated questions, 8 categories
-│   ├── annotate.py            # Interactive tool: confirms relevance against real retrieval
-│   └── metrics.py              # Precision@5, MRR, faithfulness, answer relevance, no-answer accuracy
-├── tests/                     # Unit tests (pytest) — 16 tests
-│   ├── test_schema.py
-│   ├── test_cleaner.py
-│   └── test_rag.py             # Retrieval/relevance behavior, no LLM calls (CI-safe)
-├── scripts/                   # One-shot data/benchmark scripts (never imported)
-├── notebooks/                 # Per-layer validation scripts against real data
-├── docs/
-│   ├── system_architecture.png
-│   ├── ocr_benchmark.md
-│   ├── llm_benchmark.md
-│   ├── final_evaluation.md
-│   ├── technical_challenges.md
-│   └── screenshots/
-├── data/raw/                   # Git-ignored — local sample/test data
-├── Dockerfile                   # Validated in CI (build-only, never pushed/deployed)
-├── .dockerignore
-├── ruff.toml                    # Documents intentionally-ignored lint rules
-├── .env.example                 # Documents expected env vars, no real secrets
-├── requirements.txt
-└── requirements-dev.txt         # pytest, ruff — dev-only, not needed at runtime
-```
-
----
-
 ## Tech Stack
 
 | Layer | Technology | Why |
@@ -267,8 +248,8 @@ review-intel-platform/
 ## Installation
 
 ```bash
-git clone https://github.com/<your-username>/AI-Powered-Customer-Review-Intelligence-Platform.git
-cd review-intel-platform
+git clone https://github.com/ouhaddousara/AI-Powered-Customer-Review-Intelligence-Platform.git
+cd AI-Powered-Customer-Review-Intelligence-Platform
 pip install -r requirements.txt
 ```
 
@@ -440,5 +421,3 @@ Full write-up: [`docs/technical_challenges.md`](docs/technical_challenges.md)
 - [LLM Benchmark](docs/llm_benchmark.md)
 - [Final Evaluation](docs/final_evaluation.md)
 - [Technical Challenges & Solutions](docs/technical_challenges.md)
-
----
