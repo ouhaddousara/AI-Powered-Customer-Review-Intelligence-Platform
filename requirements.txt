@@ -23,6 +23,20 @@ paddleocr
 paddlepaddle
 python-Levenshtein
 
-# Layer 6 — Benchmarking
-google-generativeai
+# Layer 4 — NLP Analysis
+transformers
+
+# Layer 5 — RAG
+chromadb
+sentence-transformers
+groq
+
+# Benchmarking
 mistralai
+
+# Interface
+gradio
+markdown
+
+# Shared / utility
+python-dotenv
